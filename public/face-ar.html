@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Gương Thần - AR Ai Cập & Cổ Vật</title>
+    <style>
+      body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, sans-serif; touch-action: none; }
+      #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+      #status-box { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.85); color: #fbbf24; padding: 12px 24px; z-index: 9999; border-radius: 30px; font-size: 14px; font-weight: bold; border: 1px solid #d97706; box-shadow: 0 10px 25px rgba(0,0,0,0.5); backdrop-filter: blur(8px); transition: opacity 0.5s ease; pointer-events: none; white-space: nowrap; }
+      
+      #ui-container { position: absolute; bottom: 20px; left: 10px; right: 10px; z-index: 1000; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+      
+      .target-switcher { display: flex; gap: 5px; background: #1e293b; padding: 5px; border-radius: 12px; margin-bottom: 10px; width: 100%; box-sizing: border-box; border: 1px solid #475569;}
+      .target-btn { flex: 1; padding: 8px 2px; border: none; background: transparent; color: #94a3b8; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.3s; }
+      .target-btn.active { background: #d97706; color: white; box-shadow: 0 4px 10px rgba(217,119,6,0.4); }
+
+      #gender-switcher { display: none; width: 100%; gap: 5px; margin-bottom: 10px; animation: fadeIn 0.3s;}
+      #gender-switcher.show { display: flex; }
+      .gender-btn { flex: 1; padding: 8px; border: 1px solid #0ea5e9; background: rgba(15,23,42,0.8); color: #bae6fd; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.3s;}
+      .gender-btn.active { background: #0ea5e9; color: white; box-shadow: 0 4px 10px rgba(14,165,233,0.4); }
+      .gender-btn.female.active { background: #ec4899; border-color: #ec4899; box-shadow: 0 4px 10px rgba(236,72,153,0.4); }
+
+      #control-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid #d97706; border-radius: 20px; padding: 15px; width: 100%; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translateY(150%); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; }
+      #control-panel.show { transform: translateY(0); pointer-events: auto; }
+      
+      .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 15px; }
+      .slider-group label { display: flex; justify-content: space-between; color: #cbd5e1; font-size: 10px; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;}
+      input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #d97706; cursor: pointer; margin-top: -5px; }
+      input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cursor: pointer; background: #334155; border-radius: 3px; }
+      
+      .fab-row { display: flex; gap: 12px; align-items: center; justify-content: flex-end; width: 100%;}
+      .fab-btn { width: 50px; height: 50px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.2s; }
+      .fab-btn:active { transform: scale(0.9); }
+      
+      #filter-toggle-btn { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4); }
+      #filter-toggle-btn.disabled { background: #475569; box-shadow: none; opacity: 0.7; filter: grayscale(100%); }
+      #settings-btn { background: linear-gradient(135deg, #ec4899, #8b5cf6); box-shadow: 0 6px 16px rgba(236, 72, 153, 0.4); }
+      #audio-btn { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4); display: none; }
+      #audio-btn.playing { background: linear-gradient(135deg, #f59e0b, #d97706); }
+
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { MindARThree } from 'mindar-face-three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+      const statusBox = document.getElementById('status-box');
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      let maskUrl = urlParams.get('mask'); 
+      let earringUrl = urlParams.get('earring');
+      const audioUrl = urlParams.get('audio'); 
+      const isEgyptianMakeupParam = urlParams.get('makeup') === 'true' || urlParams.get('type') === 'egyptian';
+
+      const legacyModelUrl = urlParams.get('model');
+      if (legacyModelUrl) {
+          if (urlParams.get('type') === 'earring') earringUrl = legacyModelUrl;
+          else maskUrl = legacyModelUrl;
+      }
+      const is2DMask = maskUrl ? maskUrl.match(/\.(png|jpe?g|webp)(\?.*)?$/i) : false;
+
+      let bgAudio = null;
+      const audioBtn = document.getElementById('audio-btn');
+      if (audioUrl) {
+          bgAudio = new Audio(audioUrl);
+          audioBtn.style.display = 'flex';
+          audioBtn.addEventListener('click', () => {
+              if (bgAudio.paused) {
+                  bgAudio.play().then(() => { audioBtn.classList.add('playing'); audioBtn.innerHTML = '🔇'; }).catch(e => console.error(e));
+              } else {
+                  bgAudio.pause(); audioBtn.classList.remove('playing'); audioBtn.innerHTML = '▶️';
+              }
+          });
+          bgAudio.addEventListener('ended', () => { audioBtn.classList.remove('playing'); audioBtn.innerHTML = '▶️'; });
+      }
+
+      const mindarThree = new MindARThree({ container: document.querySelector("#container") });
+      const {renderer, scene, camera} = mindarThree;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
+      scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0xfff1c2, 2.5);
+      dirLight.position.set(0, 10, 10);
+      scene.add(dirLight);
+
+      const meshes = { mask: null, earring: null };
+      let activeMeshTarget = 'makeup'; 
+      let activeGender = 'male'; 
+      let isFilterActive = true; 
+      let active3DProps = []; 
+
+      let headAnchor, foreheadAnchor, chinAnchor;
+      let makeupMesh = null; 
+      let makeupTexFemale = null;
+      let makeupTexMale = null;
+      let mask2DTexture = null;
+      let propsFemale = null; 
+      let propsMale = null;
+
+      const lastHeadRot = new THREE.Euler();
+      const swingVelocity = new THREE.Vector2(0, 0);
+      const currentSwing = new THREE.Vector2(0, 0);
+
+      // ==========================================
+      // MODULE 1: MAKEUP - "ĐIỂM VÀNG" TỌA ĐỘ 
+      // ==========================================
+      const createTexture = (gender) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1024; canvas.height = 1024;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, 1024, 1024);
+
+          // ĐÃ ĐIỀU CHỈNH VỀ ĐIỂM VÀNG (CÂN BẰNG GIỮA 2 LẦN TEST TRƯỚC ĐÓ)
+          const L_EYE = { x: 335, y: 410 }; 
+          const R_EYE = { x: 689, y: 410 }; 
+          const BROW_Y = 340;               
+          const MOUTH = { x: 512, y: 710 }; 
+
+          if (gender === 'female') {
+              // Phấn mắt (Eyeshadow)
+              ctx.save();
+              ctx.filter = 'blur(15px)'; 
+              [L_EYE, R_EYE].forEach((eye, i) => {
+                  const isLeft = i === 0;
+                  const sign = isLeft ? 1 : -1;
+                  const grad = ctx.createRadialGradient(eye.x, eye.y, 5, eye.x, eye.y, 90);
+                  grad.addColorStop(0, 'rgba(0, 190, 220, 0.95)'); 
+                  grad.addColorStop(0.6, 'rgba(0, 110, 150, 0.8)'); 
+                  grad.addColorStop(0.85, 'rgba(212, 175, 55, 0.4)'); 
+                  grad.addColorStop(1, 'rgba(0,0,0,0)');
+                  ctx.fillStyle = grad;
+                  ctx.beginPath();
+                  ctx.ellipse(eye.x - sign * 25, eye.y - 15, 110, 60, isLeft ? -0.2 : 0.2, 0, Math.PI * 2);
+                  ctx.fill();
+              });
+              ctx.restore();
+
+              // Má hồng (Blush)
+              ctx.save();
+              ctx.filter = 'blur(25px)'; 
+              ctx.fillStyle = 'rgba(236, 72, 153, 0.45)'; 
+              ctx.beginPath(); ctx.ellipse(250, 520, 65, 45, -0.3, 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(774, 520, 65, 45, 0.3, 0, Math.PI*2); ctx.fill();
+              ctx.restore();
+
+              // Son môi hồng đất (Bán trong suốt)
+              ctx.save();
+              ctx.filter = 'blur(3px)';
+              ctx.fillStyle = 'rgba(219, 39, 119, 0.65)'; 
+              ctx.beginPath(); ctx.ellipse(MOUTH.x, MOUTH.y - 12, 60, 16, 0, 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(MOUTH.x, MOUTH.y + 16, 60, 18, 0, 0, Math.PI*2); ctx.fill();
+              ctx.restore();
+          }
+
+          // Kẻ mắt Khol Eyeliner (Nam & Nữ)
+          ctx.save();
+          ctx.strokeStyle = '#080808'; 
+          ctx.fillStyle = '#080808';
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+          [L_EYE, R_EYE].forEach((eye, i) => {
+              const isLeft = i === 0;
+              const sign = isLeft ? 1 : -1;
+              const innerX = eye.x + sign * 55;  
+              const outerX = eye.x - sign * 55;  
+              const wingX = eye.x - sign * 145;  
+              const wingY = eye.y - 20;
+
+              // Chân mày
+              ctx.beginPath(); 
+              ctx.lineWidth = gender === 'male' ? 24 : 14;
+              ctx.filter = gender === 'female' ? 'blur(1px)' : 'none'; 
+              ctx.moveTo(innerX - sign * 10, BROW_Y);
+              ctx.quadraticCurveTo(eye.x, BROW_Y - 25, wingX, BROW_Y + 15);
+              ctx.stroke();
+
+              // Viền mí trên
+              ctx.filter = 'none'; 
+              ctx.beginPath(); ctx.lineWidth = gender === 'male' ? 12 : 9;
+              ctx.moveTo(innerX, eye.y - 12);
+              ctx.quadraticCurveTo(eye.x, eye.y - 35, outerX, eye.y - 5);
+              ctx.quadraticCurveTo(outerX - sign * 20, eye.y - 5, wingX, wingY);
+              ctx.stroke();
+
+              // Viền mí dưới
+              ctx.beginPath(); ctx.lineWidth = gender === 'male' ? 10 : 7;
+              ctx.moveTo(innerX, eye.y + 12);
+              ctx.quadraticCurveTo(eye.x, eye.y + 30, outerX, eye.y + 10);
+              ctx.stroke();
+
+              // Khóe mắt
+              ctx.beginPath();
+              ctx.moveTo(innerX, eye.y - 8);
+              ctx.lineTo(innerX + sign * 25, eye.y + 12);
+              ctx.lineTo(innerX, eye.y + 15);
+              ctx.fill();
+
+              // Móc Mắt Horus
+              if (gender === 'male' || gender === 'female') {
+                  ctx.beginPath(); ctx.lineWidth = 6;
+                  ctx.moveTo(outerX, eye.y + 5);
+                  ctx.quadraticCurveTo(outerX - sign * 25, eye.y + 35, outerX - sign * 5, eye.y + 60);
+                  ctx.stroke();
+              }
+          });
+          ctx.restore();
+
+          // THUẬT TOÁN TẨY CON NGƯƠI (Cut-out)
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+          
+          ctx.filter = 'blur(4px)'; 
+          [L_EYE, R_EYE].forEach((eye) => {
+              ctx.beginPath();
+              // Dáng hạnh nhân ôm sát con mắt
+              ctx.ellipse(eye.x, eye.y, 52, 24, 0, 0, Math.PI * 2); 
+              ctx.fill();
+          });
+
+          // Rạch rãnh miệng tự nhiên
+          ctx.filter = 'blur(2px)';
+          ctx.beginPath();
+          ctx.ellipse(MOUTH.x, MOUTH.y + 2, 60, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.center.set(0.5, 0.5); 
+          texture.needsUpdate = true;
+          return texture;
+      };
+
+      // ==========================================
+      // MODULE 2: DỰNG CỔ VẬT 3D CHUẨN XÁC
+      // ==========================================
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.3 });
+      const blueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.2, roughness: 0.5 });
+
+      const createFemaleCrown = () => {
+          const group = new THREE.Group();
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.025, 32, 1, true, 0, Math.PI), goldMat);
+          band.rotation.y = Math.PI / 2;
+          group.add(band);
+
+          const snake = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.08), goldMat);
+          snake.position.set(0, 0.03, 0.08); snake.rotation.x = 0.2;
+          group.add(snake);
+
+          group.position.set(0, 0.02, 0); 
+          group.userData = { baseScale: 1.0, initPos: group.position.clone(), initRot: group.rotation.clone() };
+          return group;
+      };
+
+      const createMaleProps = () => {
+          const group = new THREE.Group();
+          
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.035, 32, 1, true, 0, Math.PI), blueMat);
+          band.rotation.y = Math.PI / 2; 
+          band.position.set(0, 0.02, 0); 
+          band.userData = { baseScale: 1.0, initPos: band.position.clone(), initRot: band.rotation.clone() };
+          group.add(band);
+
+          // RÂU PHARAOH CẮM CẰM
+          const beard = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.008, 0.1, 16), goldMat);
+          beard.scale.set(1, 1, 0.4); 
+          beard.position.set(0, -0.05, 0.02); 
+          beard.rotation.x = -0.15; 
+          beard.userData = { baseScale: 1.0, initPos: beard.position.clone(), initRot: beard.rotation.clone() };
+          group.add(beard);
+
+          return group;
+      };
+
+      const setupMesh = (gltfScene, pivotType = 'center') => {
+          const box = new THREE.Box3().setFromObject(gltfScene);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          
+          gltfScene.position.sub(center); 
+          if (pivotType === 'top') gltfScene.position.y -= (size.y / 2); 
+
+          const wrapper = new THREE.Group(); wrapper.add(gltfScene);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1; 
+          const baseScale = (pivotType === 'top' ? 0.08 : 0.16) / maxDim; 
+          wrapper.scale.set(baseScale, baseScale, baseScale);
+          wrapper.userData = { baseScale: baseScale, initPos: wrapper.position.clone(), initRot: wrapper.rotation.clone() };
+          return wrapper;
+      };
+
+      // ==========================================
+      // MODULE 3: TẢI MODEL VÀ GÁN ANCHOR
+      // ==========================================
+      const loadModels = async () => {
+          headAnchor = mindarThree.addAnchor(1);      
+          foreheadAnchor = mindarThree.addAnchor(10); 
+          chinAnchor = mindarThree.addAnchor(152);    
+
+          makeupTexFemale = createTexture('female');
+          makeupTexMale = createTexture('male');
+          
+          makeupMesh = mindarThree.addFaceMesh();
+          makeupMesh.material = new THREE.MeshBasicMaterial({ map: makeupTexMale, transparent: true, depthWrite: false });
+          makeupMesh.renderOrder = 1; 
+          scene.add(makeupMesh);
+
+          propsFemale = createFemaleCrown();
+          const maleGroup = createMaleProps();
+          propsMale = maleGroup.children; 
+          
+          foreheadAnchor.group.add(propsFemale);
+          foreheadAnchor.group.add(propsMale[0]); 
+          chinAnchor.group.add(propsMale[1]);     
+
+          const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+          let loadedCount = 0; const targetCount = (maskUrl ? 1 : 0) + (earringUrl ? 1 : 0);
+
+          if (is2DMask) {
+              new THREE.TextureLoader().load(maskUrl, (tex) => {
+                  tex.center.set(0.5, 0.5); mask2DTexture = tex;
+                  const m = mindarThree.addFaceMesh(); m.material = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+                  m.renderOrder = 2; scene.add(m); meshes.mask = m;
+                  checkLoadComplete(++loadedCount, targetCount);
+              }, undefined, () => checkLoadComplete(++loadedCount, targetCount));
+          } else if (maskUrl) {
+              loader.load(maskUrl, (gltf) => {
+                  const m = setupMesh(gltf.scene, 'center'); m.position.z = 0.05;
+                  headAnchor.group.add(m); meshes.mask = m;
+                  checkLoadComplete(++loadedCount, targetCount);
+              }, undefined, () => checkLoadComplete(++loadedCount, targetCount));
+          }
+
+          if (earringUrl) {
+              const leftEarAnchor = mindarThree.addAnchor(132), rightEarAnchor = mindarThree.addAnchor(361);
+              
+              const headOccluder = mindarThree.addFaceMesh();
+              headOccluder.material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true });
+              headOccluder.renderOrder = -1;
+              scene.add(headOccluder); 
+
+              loader.load(earringUrl, (gltf) => {
+                  const leftE = setupMesh(gltf.scene, 'top'), rightE = setupMesh(gltf.scene.clone(true), 'top');
+                  leftE.renderOrder = 0; rightE.renderOrder = 0;
+                  
+                  // Đẩy khuyên tai lùi ra ngoài để không đâm xuyên má
+                  leftE.position.set(-0.02, 0, 0.02);  
+                  rightE.position.set(0.02, 0, 0.02); 
+                  
+                  leftE.userData.initPos = leftE.position.clone(); rightE.userData.initPos = rightE.position.clone();
+                  leftE.userData.initRot = leftE.rotation.clone(); rightE.userData.initRot = rightE.rotation.clone();
+
+                  leftEarAnchor.group.add(leftE); rightEarAnchor.group.add(rightE);
+                  const master = new THREE.Group();
+                  master.userData = { baseScale: leftE.userData.baseScale, leftMesh: leftE, rightMesh: rightE };
+                  meshes.earring = master;
+                  checkLoadComplete(++loadedCount, targetCount);
+              }, undefined, () => checkLoadComplete(++loadedCount, targetCount));
+          }
+
+          if (targetCount === 0) { setActiveMesh('makeup'); startAR(); }
+      };
+
+      const checkLoadComplete = (loaded, target) => {
+          if (loaded === target) {
+              setActiveMesh(isEgyptianMakeupParam ? 'makeup' : (meshes.earring ? 'earring' : 'mask'));
+              updateVisibility(); 
+              startAR();
+          }
+      };
+
+      // ==========================================
+      // MODULE 4: VÁ LỖI SLIDER MAKEUP & TOGGLE BUTTON
+      // ==========================================
+      const updateVisibility = () => {
+          if (propsFemale) propsFemale.visible = false;
+          if (propsMale) propsMale.forEach(p => p.visible = false);
+
+          if (makeupMesh) {
+              // MindAR ép FaceMesh visible=true. Ta dùng opacity = 0 để giấu hoàn toàn lớp Makeup
+              makeupMesh.material.opacity = isFilterActive ? 0.95 : 0;
+          }
+
+          if (isFilterActive) {
+              makeupMesh.material.map = activeGender === 'male' ? makeupTexMale : makeupTexFemale;
+              if (activeGender === 'female') propsFemale.visible = true;
+              else propsMale.forEach(p => p.visible = true);
+          }
+      };
+
+      const setActiveMesh = (type) => {
+          activeMeshTarget = type;
+          document.getElementById('btn-mask').classList.toggle('active', type === 'mask');
+          document.getElementById('btn-earring').classList.toggle('active', type === 'earring');
+          document.getElementById('btn-makeup').classList.toggle('active', type === 'makeup');
+          document.getElementById('gender-switcher').classList.toggle('show', type === 'makeup');
+
+          if (type === 'earring') active3DProps = meshes.earring ? [meshes.earring.userData.leftMesh, meshes.earring.userData.rightMesh] : [];
+          else if (type === 'mask' && !is2DMask) active3DProps = meshes.mask ? [meshes.mask] : [];
+          else if (type === 'makeup') active3DProps = activeGender === 'male' ? propsMale : [propsFemale];
+          else active3DProps = []; 
+
+          if (active3DProps.length > 0) {
+              document.getElementById('scale-slider').value = active3DProps[0].scale.x / (active3DProps[0].userData.baseScale || 1.0);
+          }
+      };
+
+      document.getElementById('btn-mask').addEventListener('click', () => setActiveMesh('mask'));
+      document.getElementById('btn-earring').addEventListener('click', () => setActiveMesh('earring'));
+      document.getElementById('btn-makeup').addEventListener('click', () => setActiveMesh('makeup'));
+      
+      document.getElementById('btn-male').addEventListener('click', () => {
+          activeGender = 'male';
+          document.getElementById('btn-male').classList.add('active'); 
+          document.getElementById('btn-female').classList.remove('active');
+          updateVisibility(); setActiveMesh('makeup');
+      });
+
+      document.getElementById('btn-female').addEventListener('click', () => {
+          activeGender = 'female';
+          document.getElementById('btn-female').classList.add('active'); 
+          document.getElementById('btn-male').classList.remove('active');
+          updateVisibility(); setActiveMesh('makeup');
+      });
+
+      document.getElementById('filter-toggle-btn').addEventListener('click', () => {
+          isFilterActive = !isFilterActive;
+          document.getElementById('filter-toggle-btn').classList.toggle('disabled', !isFilterActive);
+          updateVisibility();
+          statusBox.innerHTML = isFilterActive ? "✨ Đã bật Hóa thân!" : "💄 Đã tắt Hóa thân!";
+          statusBox.style.opacity = '1'; setTimeout(() => { statusBox.style.opacity = '0'; }, 2000);
+      });
+
+      document.getElementById('settings-btn').addEventListener('click', () => {
+          document.getElementById('control-panel').classList.toggle('show');
+      });
+
+      // BẢN VÁ SLIDER MAKEUP: CHUYỂN TỶ LỆ GÓC XOAY SANG TỌA ĐỘ PIXEL 2D
+      document.getElementById('scale-slider').addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          // Scale ảnh Makeup
+          if (activeMeshTarget === 'mask' && is2DMask && mask2DTexture) { mask2DTexture.repeat.set(1 / val, 1 / val); return; }
+          if (activeMeshTarget === 'makeup') {
+              const currentTex = activeGender === 'male' ? makeupTexMale : makeupTexFemale;
+              currentTex.repeat.set(1 / val, 1 / val);
+          }
+          // Scale vật thể 3D
+          active3DProps.forEach(mesh => {
+              if (!mesh) return;
+              const s = (mesh.userData.baseScale || 1.0) * val;
+              mesh.scale.set(s, s, s);
+          });
+      });
+
+      const updateTransform = (axis, value, isPos) => {
+          const val = parseFloat(value);
+          
+          // Slider dịch chuyển cho Makeup (Dùng Offset chia tỉ lệ nhỏ gọn để ko văng màn hình)
+          if (activeMeshTarget === 'mask' && is2DMask && mask2DTexture) {
+              if (axis === 'y' && !isPos) mask2DTexture.offset.x = val / 15; 
+              if (axis === 'y' && isPos) mask2DTexture.offset.y = val * 0.5;  
+              return;
+          }
+          if (activeMeshTarget === 'makeup') {
+              const currentTex = activeGender === 'male' ? makeupTexMale : makeupTexFemale;
+              // Phép chia /15 giúp thanh trượt (-3.14 -> 3.14) tương đương dịch chuyển nhẹ nhàng (-0.2 -> 0.2) trên mặt
+              if (axis === 'y' && !isPos) currentTex.offset.x = val / 20;  // Trượt Ngang (Trái/Phải)
+              if (axis === 'y' && isPos) currentTex.offset.y = val * -0.5; // Trượt Dọc (Lên/Xuống)
+          }
+
+          // Slider dịch chuyển cho 3D Props
+          active3DProps.forEach(mesh => {
+              if (!mesh) return;
+              const initial = isPos ? mesh.userData.initPos : mesh.userData.initRot;
+              const baseValue = initial ? initial[axis] : 0;
+              mesh[isPos ? 'position' : 'rotation'][axis] = baseValue + val;
+          });
+      };
+
+      document.getElementById('rotY-slider').addEventListener('input', (e) => updateTransform('y', e.target.value));
+      document.getElementById('rotX-slider').addEventListener('input', (e) => updateTransform('x', e.target.value));
+      document.getElementById('posY-slider').addEventListener('input', (e) => updateTransform('y', e.target.value, true));
+      document.getElementById('posZ-slider').addEventListener('input', (e) => updateTransform('z', e.target.value, true));
+
+      const clock = new THREE.Clock();
+      const updatePhysics = () => {
+          if (!headAnchor || !meshes.earring) return;
+          const dt = Math.min(clock.getDelta(), 0.1); 
+          if (dt === 0) return;
+
+          const currentRot = headAnchor.group.rotation;
+          let forceX = THREE.MathUtils.clamp((currentRot.x - lastHeadRot.x) / dt, -5.0, 5.0);
+          let forceY = THREE.MathUtils.clamp((currentRot.y - lastHeadRot.y) / dt, -5.0, 5.0);
+
+          swingVelocity.x += (-150 * currentSwing.x - 12 * swingVelocity.x - forceX * 50) * dt;
+          swingVelocity.y += (-150 * currentSwing.y - 12 * swingVelocity.y - forceY * 50) * dt;
+          
+          currentSwing.x = THREE.MathUtils.clamp(currentSwing.x + swingVelocity.x * dt, -0.6, 0.6);
+          currentSwing.y = THREE.MathUtils.clamp(currentSwing.y + swingVelocity.y * dt, -0.6, 0.6);
+          
+          if(meshes.earring.userData.leftMesh?.children[0]) meshes.earring.userData.leftMesh.children[0].rotation.set(currentSwing.x, 0, currentSwing.y);
+          if(meshes.earring.userData.rightMesh?.children[0]) meshes.earring.userData.rightMesh.children[0].rotation.set(currentSwing.x, 0, currentSwing.y);
+          lastHeadRot.copy(currentRot);
+      };
+
+      const startAR = async () => {
+          try {
+              await mindarThree.start(); 
+              statusBox.innerHTML = "✨ Đã tải thành công!";
+              statusBox.style.opacity = '1'; setTimeout(() => { statusBox.style.opacity = '0'; }, 3000);
+              if(headAnchor) lastHeadRot.copy(headAnchor.group.rotation);
+              renderer.setAnimationLoop(() => { updatePhysics(); renderer.render(scene, camera); });
+          } catch (e) { statusBox.innerHTML = "❌ Lỗi Camera!"; statusBox.style.opacity = '1'; }
+      };
+
+      loadModels();
+    </script>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="status-box">Đang khởi tạo không gian AR...</div>
+
+    <div id="ui-container">
+      <div id="control-panel">
+         <div id="gender-switcher">
+            <button id="btn-male" class="gender-btn active">🚹 Nam (Pharaoh)</button>
+            <button id="btn-female" class="gender-btn female">🚺 Nữ (Cleopatra)</button>
+         </div>
+
+         <div class="target-switcher">
+            <button id="btn-makeup" class="target-btn active">👑 Ai Cập</button>
+            <button id="btn-mask" class="target-btn">🎭 Mặt nạ</button>
+            <button id="btn-earring" class="target-btn">💎 Khuyên tai</button>
+         </div>
+
+         <div class="sliders-grid">
+             <div class="slider-group"><label><span>🔍 Lớn/Nhỏ</span></label><input type="range" id="scale-slider" min="0.5" max="3" step="0.05" value="1"></div>
+             <div class="slider-group"><label><span>↶ Ngang</span></label><input type="range" id="rotY-slider" min="-3.14" max="3.14" step="0.05" value="0"></div>
+             <div class="slider-group"><label><span>⤴ Dọc</span></label><input type="range" id="rotX-slider" min="-1.5" max="1.5" step="0.05" value="0"></div>
+             <div class="slider-group"><label><span>↕ Lên/Xuống</span></label><input type="range" id="posY-slider" min="-0.3" max="0.3" step="0.01" value="0"></div>
+         </div>
+         <div class="slider-group" style="margin-top: 10px;"><label><span>↔ Tiến/Lùi</span></label><input type="range" id="posZ-slider" min="-0.3" max="0.3" step="0.01" value="0.05"></div>
+      </div>
+      
+      <div class="fab-row">
+        <button id="filter-toggle-btn" class="fab-btn" title="Bật/Tắt Filter">✨</button>
+        <button id="audio-btn" class="fab-btn" title="Phát thuyết minh">▶️</button>
+        <button id="settings-btn" class="fab-btn" title="Cài đặt">⚙️</button>
+      </div>
+    </div>
+  </body>
+</html>

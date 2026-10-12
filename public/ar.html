@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Trải nghiệm AR - Lịch sử 3D</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; background-color: #111; height: 100vh; overflow: hidden; font-family: sans-serif; touch-action: pan-y; }
+    
+    #selector-bar { position: absolute; top: 15px; left: 0; width: 100%; display: flex; gap: 10px; padding: 0 20px; box-sizing: border-box; overflow-x: auto; z-index: 100; scroll-behavior: smooth; }
+    #selector-bar::-webkit-scrollbar { display: none; }
+    
+    .model-btn { background: rgba(255,255,255,0.85); border: 2px solid transparent; color: #334155; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 13px; white-space: nowrap; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .model-btn.active { background: #d35400; color: white; border-color: #fff; }
+
+    /* GIAO DIỆN NÚT AUDIO THÔNG MINH */
+    #audio-btn { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(139, 92, 246, 0.9); color: white; padding: 12px 28px; border-radius: 30px; font-size: 14px; font-weight: bold; border: 2px solid rgba(255,255,255,0.4); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5); cursor: pointer; display: none; align-items: center; justify-content: center; gap: 8px; z-index: 100; backdrop-filter: blur(4px); transition: 0.3s; white-space: nowrap; }
+    #audio-btn.playing { background: #ef4444; box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5); border-color: #fca5a5; }
+
+    #viewer-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    model-viewer, iframe { width: 100%; height: 100%; border: none; }
+
+    .ar-prompt { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); background: #d35400; color: white; padding: 14px 28px; border-radius: 30px; font-size: 14px; font-weight: bold; border: 2px solid white; box-shadow: 0 10px 30px rgba(211,84,0,0.6); cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 10; }
+    .ar-prompt:active { transform: translateX(-50%) scale(0.95); }
+
+    #sketchfab-hint { display: none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff; padding: 12px 20px; border-radius: 20px; text-align: center; font-size: 12px; line-height: 1.5; width: 85%; border: 1px solid #475569; z-index: 10; }
+
+    .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); width: 44px; height: 44px; border-radius: 50%; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 90; backdrop-filter: blur(4px); cursor: pointer; transition: 0.2s; }
+    .nav-btn:active { background: rgba(255,255,255,0.4); transform: translateY(-50%) scale(0.9); }
+    #prev-btn { left: 15px; }
+    #next-btn { right: 15px; }
+  </style>
+</head>
+<body>
+
+  <div id="selector-bar"></div>
+
+  <button id="audio-btn">🔊 Nghe Thuyết Minh</button>
+
+  <div id="viewer-container">
+    <div id="prev-btn" class="nav-btn" style="display: none;">&#10094;</div>
+    <div id="next-btn" class="nav-btn" style="display: none;">&#10095;</div>
+
+    <model-viewer id="ar-viewer" src="" ar ar-scale="auto" ar-modes="webxr scene-viewer quick-look" ar-placement="floor" camera-controls shadow-intensity="0.5" bounds="tight">
+      <button class="ar-prompt" slot="ar-button" id="enter-ar-btn">📸 CHẠM ĐỂ CHIẾU LÊN BÀN</button>
+    </model-viewer>
+
+    <iframe id="sketchfab-viewer" allow="autoplay; fullscreen; xr-spatial-tracking; vr; gyroscope; accelerometer; clipboard-write; encrypted-media;" style="display: none;"></iframe>
+  </div>
+
+  <div id="sketchfab-hint">
+    ☝️ <b>Lưu ý:</b> Mô hình này đang dùng link web (Sketchfab).<br>
+    Hãy tìm <b>Biểu tượng AR (Hình khối vuông)</b> ở góc dưới bên phải để chiếu lên mặt bàn nhé!
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const dataStr = urlParams.get('d');
+    let modelsList = [];
+    try { if (dataStr) { modelsList = JSON.parse(decodeURIComponent(dataStr)); } } catch (e) { console.error("Lỗi đọc dữ liệu"); }
+    
+    const selectorBar = document.getElementById('selector-bar');
+    const arViewer = document.getElementById('ar-viewer');
+    const sketchfabViewer = document.getElementById('sketchfab-viewer');
+    const sketchfabHint = document.getElementById('sketchfab-hint');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const audioBtn = document.getElementById('audio-btn');
+    const enterArBtn = document.getElementById('enter-ar-btn');
+
+    let currentIndex = 0;
+    let currentAudio = new Audio(); // Khởi tạo bộ máy Audio HTML5
+
+   // ===============================================
+    // THUẬT TOÁN 1: ÉP KÍCH THƯỚC 40CM VÀ BẮT CAMERA ZOOM SÁT
+    // ===============================================
+    arViewer.addEventListener('load', async () => {
+      // 1. Reset tỷ lệ về 1 để tránh lỗi tích lũy khi vuốt qua lại các mô hình
+      arViewer.setAttribute('scale', '1 1 1');
+      await arViewer.updateComplete;
+
+      // 2. Lấy kích thước thực tế của file 3D vừa nạp
+      const size = arViewer.getDimensions();
+      const maxDim = Math.max(size.x, size.y, size.z);
+      
+      if (maxDim > 0) {
+        // 3. Quy đổi cạnh dài nhất về đúng 0.4 mét (40cm - chuẩn đẹp để trên bàn)
+        const scaleFactor = 0.4 / maxDim; 
+        arViewer.setAttribute('scale', `${scaleFactor} ${scaleFactor} ${scaleFactor}`);
+        
+        // 4. QUAN TRỌNG NHẤT: Chờ 0.1 giây để trình duyệt thu nhỏ xong...
+        setTimeout(() => {
+            // ...rồi ÉP Camera phải chạy lại gần sát mô hình (Chữa dứt điểm lỗi hạt bụi)
+            arViewer.updateFraming();
+        }, 100);
+      }
+    });
+
+    // ===============================================
+    // THUẬT TOÁN 2: XUYÊN TƯỜNG LỬA AUDIO CỦA APPLE iOS
+    // ===============================================
+    // Kích hoạt Audio ngay khoảnh khắc ngón tay chạm vào nút "Chiếu lên bàn"
+    enterArBtn.addEventListener('click', () => {
+      if (currentAudio.src && currentAudio.src !== window.location.href) {
+        currentAudio.play().then(() => {
+          audioBtn.classList.add('playing');
+          audioBtn.innerHTML = '⏸️ Đang phát Audio...';
+        }).catch(e => console.log("Trình duyệt vẫn chặn Audio:", e));
+      }
+    });
+
+    // Tự động tắt Audio khi học sinh ấn dấu X thoát AR quay về Web
+    arViewer.addEventListener('ar-status', (event) => {
+      if (event.detail.status === 'not-presenting') {
+        currentAudio.pause();
+        audioBtn.classList.remove('playing');
+        audioBtn.innerHTML = '🔊 Nghe Thuyết Minh';
+      }
+    });
+
+    // Nút Bật/Tắt Audio thủ công nếu học sinh chỉ muốn nghe ở màn hình Web
+    audioBtn.onclick = () => {
+      if (currentAudio.paused) {
+        currentAudio.play();
+        audioBtn.classList.add('playing');
+        audioBtn.innerHTML = '⏸️ Tạm Dừng Thuyết Minh';
+      } else {
+        currentAudio.pause();
+        audioBtn.classList.remove('playing');
+        audioBtn.innerHTML = '🔊 Nghe Thuyết Minh';
+      }
+    };
+
+    function loadModel(index) {
+      currentIndex = index;
+
+      document.querySelectorAll('.model-btn').forEach((btn, i) => { 
+        btn.classList.toggle('active', i === index); 
+        if (i === index) btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+
+      if (modelsList.length > 1) {
+        prevBtn.style.display = index > 0 ? 'flex' : 'none';
+        nextBtn.style.display = index < modelsList.length - 1 ? 'flex' : 'none';
+      }
+
+      const model = modelsList[index];
+      
+      // RESET AUDIO MỖI KHI VUỐT SANG MÔ HÌNH KHÁC
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      audioBtn.classList.remove('playing');
+      audioBtn.innerHTML = '🔊 Nghe Thuyết Minh';
+
+      // Nạp Audio mới vào băng đạn
+      if (model.a && model.a.trim() !== '') {
+        audioBtn.style.display = 'flex';
+        currentAudio.src = model.a;
+      } else {
+        audioBtn.style.display = 'none';
+        currentAudio.src = '';
+      }
+
+      const isSketchfab = model.p.includes('sketchfab.com');
+      if (isSketchfab) {
+        arViewer.style.display = 'none';
+        sketchfabViewer.style.display = 'block';
+        sketchfabHint.style.display = 'block';
+        sketchfabViewer.src = model.p.split('?')[0].replace(/\/$/, '') + '/embed?autostart=1&ui_infos=0&ui_watermark=0&webxr=1';
+      } else {
+        sketchfabViewer.style.display = 'none';
+        sketchfabHint.style.display = 'none';
+        sketchfabViewer.src = ''; 
+        arViewer.style.display = 'block';
+        arViewer.src = model.p;
+      }
+    }
+
+    // XỬ LÝ VUỐT TRÁI/PHẢI (SWIPE) ĐỂ ĐỔI MÔ HÌNH
+    let touchstartX = 0; let touchendX = 0;
+    const viewerContainer = document.getElementById('viewer-container');
+    viewerContainer.addEventListener('touchstart', e => { touchstartX = e.changedTouches[0].screenX; }, { passive: true });
+    viewerContainer.addEventListener('touchend', e => {
+      touchendX = e.changedTouches[0].screenX;
+      if (touchendX < touchstartX - 60 && currentIndex < modelsList.length - 1) loadModel(currentIndex + 1);
+      if (touchendX > touchstartX + 60 && currentIndex > 0) loadModel(currentIndex - 1);
+    }, { passive: true });
+
+    prevBtn.onclick = () => { if (currentIndex > 0) loadModel(currentIndex - 1); };
+    nextBtn.onclick = () => { if (currentIndex < modelsList.length - 1) loadModel(currentIndex + 1); };
+
+    // KHỞI ĐỘNG MÀN HÌNH
+    if (modelsList.length > 0) {
+      modelsList.forEach((m, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'model-btn';
+        btn.innerText = m.n;
+        btn.onclick = () => loadModel(idx);
+        selectorBar.appendChild(btn);
+      });
+      if (modelsList.length === 1) { 
+        selectorBar.style.display = 'none'; 
+        prevBtn.style.display = 'none'; nextBtn.style.display = 'none';
+      }
+      loadModel(0);
+    } else { alert("Chưa có dữ liệu mô hình để chiếu AR!"); }
+  </script>
+</body>
+</html>

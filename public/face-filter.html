@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
+  </head>
+  <body>
+    <a-scene mindar-face embedded color-space="sRGB" renderer="colorManagement: true">
+      <a-assets>
+        <!-- Ảnh mặt nạ 2D (Cần ảnh nền trong suốt .png) -->
+        <img id="mask-texture" src="LINK_ẢNH_CỦA_BẠN.png" crossorigin="anonymous">
+      </a-assets>
+
+      <a-camera active="false" position="0 0 0"></a-camera>
+
+      <!-- Sử dụng 'mindar-face-target' để ốp ảnh lên lưới khuôn mặt -->
+      <a-entity mindar-face-target="anchorIndex: 1">
+        <!-- 'geometry' là lưới, 'material' là ảnh dán lên lưới -->
+        <a-mesh geometry="primitive: faceMesh;" material="src: #mask-texture; transparent: true;"></a-mesh>
+      </a-entity>
+      
+    </a-scene>
+  </body>
+</html>
