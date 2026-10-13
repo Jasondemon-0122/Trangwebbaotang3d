@@ -135,7 +135,7 @@ const TradingCard = ({ lesson, date, badge }: any) => {
 
 export default function App() {
   const [page, setPage] = useState<'landing' | 'student-auth' | 'split-choice' | 'lesson-choice' | 'app' | 'admin-dashboard'>('landing');
-  const [role, setRole] = useState<'guest' | 'student' | 'admin'>('guest');
+ const [role, setRole] = useState<'guest' | 'student' | 'teacher' | 'admin'>('guest');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   useEffect(() => { document.body.className = isDarkMode ? 'dark-mode' : 'light-mode'; }, [isDarkMode]);
@@ -245,7 +245,32 @@ export default function App() {
   const [activeAdminTab, setActiveAdminTab] = useState('general');
   const controlsRef = useRef<any>(null);
 
+// 1. Hàm tra cứu Role từ bảng user_roles theo Email (đặt độc lập ở ngoài)
+  const determineUserRole = async (email: string | undefined) => {
+    if (!email) { 
+      setRole('guest'); 
+      return; 
+    }
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (data && !error && data.role) {
+        setRole(data.role as 'student' | 'teacher' | 'admin');
+      } else {
+        setRole('student'); // Mặc định tài khoản mới là học sinh
+      }
+    } catch {
+      setRole('student');
+    }
+  };
+
+  // 2. useEffect duy nhất tải bài học Cloud VÀ kiểm tra phiên đăng nhập + Role
   useEffect(() => {
+    // Tải bài học từ Supabase
     const fetchCloudData = async () => {
       try {
         const { data, error } = await supabase.from('heritage_lessons').select('content');
@@ -261,13 +286,28 @@ export default function App() {
     };
     fetchCloudData();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) { setCurrentUser(session.user); setRole('student'); }
+    // Kiểm tra đăng nhập ban đầu
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) { 
+        setCurrentUser(session.user); 
+        await determineUserRole(session.user.email); 
+      }
     });
-    supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) { setCurrentUser(session.user); setRole('student'); }
-      else setCurrentUser(null);
+
+    // Lắng nghe thay đổi đăng nhập / đăng xuất
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) { 
+        setCurrentUser(session.user); 
+        await determineUserRole(session.user.email); 
+      } else { 
+        setCurrentUser(null); 
+        setRole('guest'); 
+      }
     });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => { if (currentUser) fetchMyPassport(); }, [currentUser]);
@@ -321,16 +361,47 @@ export default function App() {
   }, [activeMonuId, viewMode, activeMonu.gameData, activeMonu.hexGameData]);
 
   const handleStudentAuth = async (e: FormEvent) => {
-    e.preventDefault(); setIsLoading(true);
-    if (authMode === 'register') {
-      const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword, options: { data: { full_name: regName, class_name: regClass, avatar: regAvatar } } });
-      if (error) alert("Lỗi: " + error.message); else { alert("✅ Đăng ký thành công! Hãy bấm Đăng nhập để vào lớp học nhé."); setAuthMode('login'); }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
-      if (error) alert("Đăng nhập thất bại. Vui lòng kiểm tra lại Email hoặc Mật khẩu."); else { setPage('split-choice'); }
+  e.preventDefault(); 
+  setIsLoading(true);
+  if (authMode === 'register') {
+    const { error } = await supabase.auth.signUp({ 
+      email: authEmail, 
+      password: authPassword, 
+      options: { data: { full_name: regName, class_name: regClass, avatar: regAvatar } } 
+    });
+    if (error) {
+      alert("Lỗi: " + error.message); 
+    } else { 
+      alert("✅ Đăng ký thành công! Hãy bấm Đăng nhập để vào hệ thống."); 
+      setAuthMode('login'); 
     }
-    setIsLoading(false);
-  };
+  } else {
+    const { data, error } = await supabase.auth.signInWithPassword({ 
+      email: authEmail, 
+      password: authPassword 
+    });
+    if (error) {
+      alert("Đăng nhập thất bại. Vui lòng kiểm tra lại Email hoặc Mật khẩu."); 
+    } else if (data?.user) {
+      // Đọc quyền ngay sau khi đăng nhập
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('email', data.user.email)
+        .maybeSingle();
+
+      const userRole = roleData?.role || 'student';
+      setRole(userRole as any);
+
+      if (userRole === 'admin' || userRole === 'teacher') {
+        setPage('admin-dashboard'); // Giáo viên/Admin vào thẳng CMS
+      } else {
+        setPage('split-choice');     // Học sinh vào chọn bài học
+      }
+    }
+  }
+  setIsLoading(false);
+};
 
   const handleLogout = async () => { await supabase.auth.signOut(); setRole('guest'); setCurrentUser(null); setMyPassport([]); setPage('landing'); };
 
@@ -631,19 +702,62 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
         <div className="landing-wrapper">
           <div className="landing-inner">
             <nav className="landing-nav">
-              <div className="logo">🏛️ Heritage Studio</div>
-              <div className="nav-links">
-                {currentUser ? (
-                  <span onClick={() => handleNavigateToPage('split-choice')}>Vào lớp học ({currentUser.user_metadata?.full_name || 'Học sinh'})</span>
-                ) : (
-                  <span onClick={() => setPage('student-auth')}>Học sinh Đăng nhập</span>
-                )}
-                <span onClick={() => setShowLogin(true)}>Giáo viên</span>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} style={{background: 'transparent', border: 'none', fontSize: '22px', cursor: 'pointer', marginLeft: '16px'}} title="Chuyển đổi giao diện">
-                  {isDarkMode ? '☀️' : '🌙'}
-                </button>
-              </div>
-            </nav>
+  <div className="logo">🏛️ Heritage Studio</div>
+  <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    {!currentUser ? (
+      <>
+        <span 
+          onClick={() => { setAuthMode('login'); setPage('student-auth'); }}
+          style={{ cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', border: '1px solid #475569' }}
+        >
+          Đăng nhập
+        </span>
+        <span 
+          onClick={() => { setAuthMode('register'); setPage('student-auth'); }}
+          style={{ cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', background: '#f59e0b', color: '#0f172a', fontWeight: 'bold' }}
+        >
+          Đăng ký
+        </span>
+      </>
+    ) : (
+      <>
+        {/* Huy hiệu Role */}
+        <span style={{ 
+          fontSize: '12px', 
+          fontWeight: 'bold', 
+          padding: '4px 8px', 
+          borderRadius: '6px', 
+          color: '#fff',
+          background: role === 'admin' ? '#ef4444' : role === 'teacher' ? '#3b82f6' : '#10b981' 
+        }}>
+          {role === 'admin' ? '👑 Admin' : role === 'teacher' ? '👨‍🏫 Giáo viên' : '🎓 Học sinh'}
+        </span>
+
+        {/* Nút vào CMS cho Admin & Giáo viên */}
+        {(role === 'admin' || role === 'teacher') && (
+          <span 
+            onClick={() => handleNavigateToPage('admin-dashboard')} 
+            style={{ cursor: 'pointer', color: '#60a5fa', fontWeight: 'bold' }}
+          >
+            ⚙️ Quản lý bài học
+          </span>
+        )}
+
+        <span onClick={() => handleNavigateToPage('split-choice')} style={{ cursor: 'pointer' }}>
+          Vào bài học ({currentUser.user_metadata?.full_name || currentUser.email})
+        </span>
+
+        <span onClick={handleLogout} style={{ cursor: 'pointer', color: '#f87171' }}>
+          Đăng xuất
+        </span>
+      </>
+    )}
+
+    <button onClick={() => setIsDarkMode(!isDarkMode)} style={{background: 'transparent', border: 'none', fontSize: '22px', cursor: 'pointer', marginLeft: '8px'}} title="Chuyển đổi giao diện">
+      {isDarkMode ? '☀️' : '🌙'}
+    </button>
+  </div>
+</nav>
             <div className="landing-hero">
               <div className="hero-content">
                 <h1>Khám phá quá khứ,<br />chạm vào hiện tại.</h1>
@@ -652,9 +766,11 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   {currentUser ? (
                     <button className="btn-primary" onClick={() => handleNavigateToPage('split-choice')}>MỞ BÀI GIẢNG 3D</button>
                   ) : (
-                    <button className="btn-primary" onClick={() => setPage('student-auth')}>ĐĂNG NHẬP / ĐĂNG KÝ HỌC SINH</button>
+                    <button className="btn-primary" onClick={() => { setAuthMode('login'); setPage('student-auth'); }}>ĐĂNG NHẬP ĐỂ VÀO HỌC</button>
                   )}
-                  <button className="btn-outline" onClick={() => setShowLogin(true)}>DÀNH CHO GIÁO VIÊN</button>
+                  {(role === 'admin' || role === 'teacher') && (
+                    <button className="btn-outline" onClick={() => handleNavigateToPage('admin-dashboard')}>TRUNG TÂM QUẢN LÝ (CMS)</button>
+                  )}
                 </div>
               </div>
               <div className="hero-featured-image">
