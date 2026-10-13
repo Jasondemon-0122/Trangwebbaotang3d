@@ -403,7 +403,33 @@ export default function App() {
   setIsLoading(false);
 };
 
-  const handleLogout = async () => { await supabase.auth.signOut(); setRole('guest'); setCurrentUser(null); setMyPassport([]); setPage('landing'); };
+  const handleLogout = async () => {
+    try {
+      // 1. Lập tức đưa state về khách để giao diện phản hồi ngay
+      setCurrentUser(null);
+      setRole('guest');
+      setMyPassport([]);
+      setPage('landing');
+
+      // 2. Gọi signOut có giới hạn thời gian (tối đa 1 giây), không để treo giao diện
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1000))
+      ]);
+    } catch (err) {
+      console.error("Lỗi đăng xuất:", err);
+    } finally {
+      // 3. Quét sạch tất cả key phiên đăng nhập của Supabase trong localStorage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('sb-') || key.includes('auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      // 4. Tải lại trang để làm sạch hoàn toàn bộ nhớ phiên
+      window.location.reload();
+    }
+  };
 
   const handleSaveScoreToCloud = async (correct: number, total: number, badgeName: string) => {
     if (!currentUser) return;
@@ -747,9 +773,22 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
           Vào bài học ({currentUser.user_metadata?.full_name || currentUser.email})
         </span>
 
-        <span onClick={handleLogout} style={{ cursor: 'pointer', color: '#f87171' }}>
-          Đăng xuất
-        </span>
+        <button
+  type="button"
+  onClick={handleLogout}
+  style={{
+    background: 'rgba(239, 68, 68, 0.15)',
+    color: '#f87171',
+    border: '1px solid #ef4444',
+    padding: '6px 14px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '13px'
+  }}
+>
+  Đăng xuất
+</button>
       </>
     )}
 
