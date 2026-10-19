@@ -1,4 +1,4 @@
-import { Suspense, useState, useRef, useEffect, useMemo, Component } from 'react';
+import { Suspense, useState, useRef, useEffect, useMemo, useCallback, Component } from 'react';
 import type { ReactNode, FormEvent, DragEvent } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
@@ -9,11 +9,11 @@ import './App.css';
 import { initialMonumentsData } from './data';
 
 // ==========================================
-// CẤU HÌNH SUPABASE CLOUD
+// CẤU HÌNH SUPABASE CLOUD (Bảo mật qua Environment Variables)
 // ==========================================
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const PREDEFINED_ICONS = ['📌', '📍', '👑', '📐', '🥽', '🏛️', '⛰️', '🕌', '🏰', '🛕', '🏯', '⏳', '📅', '📏', '🌍', '🧭', '📜', '🏺', '⚔️', '🛡️', '⚓', '💡', '🔍', '💎', '🗿', '🔥', '💧', '🌿', '⚙️', '📖'];
 const AVATAR_LIST = ['👦🏻', '👧🏻', '👨‍🎓', '👩‍🎓', '🕵️‍♂️', '🕵️‍♀️', '🧙‍♂️', '🧝‍♀️', '🦁', '🦉'];
@@ -43,15 +43,31 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}
   }
 }
 
-function HistoricalModel({ path, onMeshClick }: { path: string, onMeshClick: (name: string) => void }) {
+function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string, onMeshClick: (name: string) => void, customScale?: number }) {
   const { scene } = useGLTF(path);
-  const modelScale = useMemo(() => {
+  // Chuẩn hóa kích thước hình học 1 lần duy nhất để không bị tính lại bounding box khi kéo slider
+  const baseScale = useMemo(() => {
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    return maxDim > 0 ? 7.5 / maxDim : 1;
+    return maxDim > 0 ? 3.8 / maxDim : 1;
   }, [scene]);
-  return (<Center scale={modelScale}><primitive object={scene} dispose={null} onClick={(e: any) => { e.stopPropagation(); if (e.object.type === 'Mesh') onMeshClick(e.object.name); }} onPointerMissed={() => onMeshClick('')} /></Center>);
+
+  return (
+    <group scale={customScale}>
+      <Center scale={baseScale}>
+        <primitive 
+          object={scene} 
+          dispose={null} 
+          onClick={(e: any) => { 
+            e.stopPropagation(); 
+            if (e.object.type === 'Mesh') onMeshClick(e.object.name); 
+          }} 
+          onPointerMissed={() => onMeshClick('')} 
+        />
+      </Center>
+    </group>
+  );
 }
 
 const TradingCard = ({ lesson, date, badge }: any) => {
@@ -133,6 +149,36 @@ const TradingCard = ({ lesson, date, badge }: any) => {
   );
 };
 
+const HERO_ARTIFACTS = [
+  {
+    id: "pyramid",
+    name: "Kim Tự Tháp Giza",
+    period: "Ai Cập Cổ Đại • Khoảng 2560 TCN",
+    image: "https://cas.stthomas.edu/_media-library/_images/history/1920x1080/stthomas-history-time.jpg",
+    tag: "Chủ đề 3 • Kỳ quan Cổ đại",
+    badge: "Mặt cắt & VR Tour",
+    icon: "🏛️"
+  },
+  {
+    id: "dongson",
+    name: "Trống Đồng Đông Sơn",
+    period: "Thời kỳ Văn Lang - Âu Lạc • Đồ đồng Việt Nam",
+    image: "https://images.unsplash.com/photo-1599707367072-cd6ada2bc375?auto=format&fit=crop&w=1200&q=80",
+    tag: "Lịch sử Việt Nam • Bảo vật Quốc gia",
+    badge: "Hoa văn 3D Tinh xảo",
+    icon: "🥁"
+  },
+  {
+    id: "egypt-coffin",
+    name: "Quan tài Hoàng gia",
+    period: "Cựu Vương quốc • Quan tài Pa-di-mut",
+    image: "https://images.unsplash.com/photo-1604620864316-24e5289fcdac?auto=format&fit=crop&w=1200&q=80",
+    tag: "Chủ đề 3 • Điêu khắc & Tín ngưỡng",
+    badge: "Phục dựng Nguyên bản",
+    icon: "👑"
+  }
+];
+
 export default function App() {
   const [page, setPage] = useState<'landing' | 'student-auth' | 'split-choice' | 'lesson-choice' | 'app' | 'admin-dashboard'>('landing');
  const [role, setRole] = useState<'guest' | 'student' | 'teacher' | 'admin'>('guest');
@@ -142,6 +188,8 @@ export default function App() {
 
   const [showLogin, setShowLogin] = useState(false);
   const [password, setPassword] = useState('');
+  const [landingArtifactIndex, setLandingArtifactIndex] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [transitioningPanel, setTransitioningPanel] = useState<'left' | 'right' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -156,6 +204,105 @@ export default function App() {
   const [draggedImgId, setDraggedImgId] = useState<string | null>(null);
   const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
   const [openIconPickerId, setOpenIconPickerId] = useState<string | null>(null);
+
+  // 🔍 THU PHÓNG & THIẾT BỊ NGOẠI VI (SCALE & TOUCH MULTIPLIER)
+  const [modelScaleMultiplier, setModelScaleMultiplier] = useState(1);
+  const [showRlsHelpModal, setShowRlsHelpModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [dbStatus, setDbStatus] = useState<{ checked: boolean; online: boolean; rlsBlocked: boolean; lessonCount: number; errorMsg: string | null }>({
+    checked: false,
+    online: false,
+    rlsBlocked: false,
+    lessonCount: 0,
+    errorMsg: null
+  });
+
+  // Kiểm tra kết nối Supabase Cloud thực tế
+  const checkDatabaseConnection = useCallback(async () => {
+    try {
+      const { data, error, count } = await supabase.from('heritage_lessons').select('id', { count: 'exact' });
+      if (error) {
+        const isRls = error.code === '42501' || error.message?.toLowerCase().includes('policy');
+        setDbStatus({ checked: true, online: !isRls, rlsBlocked: isRls, lessonCount: 0, errorMsg: error.message });
+      } else {
+        setDbStatus({ checked: true, online: true, rlsBlocked: false, lessonCount: count || (data ? data.length : 0), errorMsg: null });
+      }
+    } catch (err: any) {
+      setDbStatus({ checked: true, online: false, rlsBlocked: false, lessonCount: 0, errorMsg: err?.message || 'Lỗi kết nối' });
+    }
+  }, []);
+
+  useEffect(() => {
+    checkDatabaseConnection();
+  }, [checkDatabaseConnection]);
+
+  // 🔮 HOLOGRAM & TURNTABLE EXHIBITION STATE
+  const [isHologramMode, setIsHologramMode] = useState(false);
+  const [isAutoRotating, setIsAutoRotating] = useState(true);
+  const [hologramSpeed, setHologramSpeed] = useState(1.5);
+  const [hologramBg, setHologramBg] = useState<'pure-black' | 'grid' | 'studio'>('pure-black');
+  const [isHologramUIVisible, setIsHologramUIVisible] = useState(true);
+  const hologramTimerRef = useRef<any>(null);
+
+  const resetHologramIdleTimer = useCallback(() => {
+    setIsHologramUIVisible(true);
+    if (hologramTimerRef.current) clearTimeout(hologramTimerRef.current);
+    hologramTimerRef.current = setTimeout(() => {
+      setIsHologramUIVisible(false);
+    }, 3000);
+  }, []);
+
+  const handleEnterHologram = () => {
+    setIsHologramMode(true);
+    setIsAutoRotating(true);
+    resetHologramIdleTimer();
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  const handleExitHologram = () => {
+    setIsHologramMode(false);
+    if (hologramTimerRef.current) clearTimeout(hologramTimerRef.current);
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (!isHologramMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      resetHologramIdleTimer();
+      if (e.key === 'Escape') {
+        handleExitHologram();
+      } else if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        setIsAutoRotating(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isHologramMode, resetHologramIdleTimer]);
+
+  // Lắng nghe sự kiện thoát Fullscreen của trình duyệt để tự động đóng chế độ Hologram
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && isHologramMode) {
+        setIsHologramMode(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+    };
+  }, [isHologramMode]);
+
 
   const [monumentsData, setMonumentsData] = useState<any[]>(() => {
     try {
@@ -274,15 +421,34 @@ export default function App() {
     const fetchCloudData = async () => {
       try {
         const { data, error } = await supabase.from('heritage_lessons').select('content');
-        if (error) console.error("Lỗi tải data cloud:", error); 
+        if (error) {
+          console.warn("⚠️ Lỗi tải dữ liệu Cloud Supabase:", error.message || error);
+          return;
+        } 
         if (data && data.length > 0) {
            const parsedData = data.map((row: any) => ({
               ...row.content, 
               region: row.content.region || ((row.content.category === 'Chủ đề 3' || row.content.category?.toLowerCase().includes('thế giới')) ? 'world' : 'vietnam')
            }));
            setMonumentsData(parsedData);
+           localStorage.setItem('heritageData', JSON.stringify(parsedData));
+           setDbStatus(prev => ({ ...prev, online: true, rlsBlocked: false, lessonCount: parsedData.length }));
+        } else {
+           // Nếu Supabase chưa có bản ghi: Tự động đồng bộ toàn bộ bài học gốc lên Cloud
+           try {
+             const seedPayload = initialMonumentsData.map((m: any) => ({ id: m.id, content: m }));
+             const { error: seedError } = await supabase.from('heritage_lessons').upsert(seedPayload);
+             if (!seedError) {
+               console.log("✅ Đã tự động khởi tạo bài học gốc lên Supabase Cloud:", seedPayload.length, "bài.");
+               setDbStatus(prev => ({ ...prev, online: true, rlsBlocked: false, lessonCount: seedPayload.length }));
+             }
+           } catch {
+             // Supabase RLS hoặc kết nối tạm thời
+           }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Lỗi kết nối máy chủ Supabase:", err);
+      }
     };
     fetchCloudData();
 
@@ -321,7 +487,7 @@ export default function App() {
     setNpcStep(0); setNpcFeedback(null);
     setActiveMaskIndex(null); // THÊM DÒNG NÀY ĐỂ RESET MẶT NẠ KHI ĐỔI BÀI
     
-    if (viewMode === 'hex' && activeMonu.hexGameData) {
+    if ((viewMode as string) === 'hex' && activeMonu.hexGameData) {
         const nodes = activeMonu.hexGameData.map((item: any, i: number) => {
             // Tương thích ngược: Nếu là bản cũ thì lấy string, bản mới thì lấy item.text
             const nodeText = typeof item === 'string' ? item : item.text;
@@ -345,7 +511,7 @@ export default function App() {
     setActiveMaskIndex(null); 
     
     // ĐOẠN ĐƯỢC CẬP NHẬT ĐỂ ĐỌC ĐÚNG DATA CMS MỚI
-    if (viewMode === 'hex' && activeMonu.hexGameData) {
+    if ((viewMode as string) === 'hex' && activeMonu.hexGameData) {
         const nodes = activeMonu.hexGameData.map((item: any, i: number) => {
             // Kiểm tra xem data là String cũ hay Object mới từ CMS
             const textVal = typeof item === 'string' ? item : (item.text || 'Thẻ bài');
@@ -571,7 +737,7 @@ export default function App() {
   };
 
   const currentInfo = getActiveData();
-  const currentGallery = activeMonu?.gallery?.filter((img: any) => img.type === (viewMode === 'ar' || viewMode === 'game' || viewMode === 'hex' || viewMode === 'npc' || viewMode === 'mask' ? 'normal' : viewMode) || viewMode === 'tour') || [];
+  const currentGallery = activeMonu?.gallery?.filter((img: any) => img.type === ((viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' ? 'normal' : viewMode) || viewMode === 'tour') || [];
   const currentMainModelPath = activeSubModelPath || activeMonu[viewMode === 'section' ? 'sectionPath' : 'normalPath'];
   
   const displayedMonuments = role === 'admin' ? monumentsData : monumentsData.filter((m: any) => m.region === activeRegion);
@@ -582,15 +748,37 @@ export default function App() {
   const navigateToApp = (id: string, asRole: 'guest' | 'student' | 'admin' = 'guest') => { setIsLoading(true); setTimeout(() => { setActiveMonuId(id); setRole(asRole); setPage('app'); setViewMode('normal'); setIsLoading(false); }, 600); };
   const handleLogin = (e: FormEvent) => { e.preventDefault(); if (password === 'admin123') { setRole('admin'); setShowLogin(false); handleNavigateToPage('admin-dashboard'); setPassword(''); } else { alert('Sai mật khẩu!'); } };
 
+  const handleResetToInitialData = () => {
+    if (window.confirm("Bạn có muốn nạp lại toàn bộ bài học di sản gốc của dự án (Kim Tự Tháp, Taj Mahal, Colosseum, Machu Picchu, Cố đô Huế, Mỹ Sơn, Văn Lang, Hạ Long)?")) {
+      setMonumentsData(initialMonumentsData);
+      localStorage.setItem('heritageData', JSON.stringify(initialMonumentsData));
+      alert("✅ Đã nạp lại bài học gốc thành công! Hãy nhấn '☁️ Lưu lên Đám mây' để đồng bộ ngay lên Supabase.");
+    }
+  };
+
   const handleSaveToCloud = async () => { 
      setIsLoading(true); 
+     // Luôn lưu dự phòng vào Local Storage để không bao giờ mất dữ liệu tại chỗ
+     localStorage.setItem('heritageData', JSON.stringify(monumentsData));
      try { 
        const payload = monumentsData.map((m: any) => ({ id: m.id, content: m }));
        const { error } = await supabase.from('heritage_lessons').upsert(payload); 
-       if (error) throw error; 
-       alert("✅ Đã lưu lên Đám mây."); 
-     } catch (e: any) { alert(`❌ Lỗi lưu Cloud: ${e.message}`); } 
-     setIsLoading(false); 
+       if (error) {
+         if (error.code === '42501' || error.message?.toLowerCase().includes('policy')) {
+           setDbStatus(prev => ({ ...prev, rlsBlocked: true }));
+           setShowRlsHelpModal(true);
+         } else {
+           alert(`❌ Lỗi lưu Cloud: ${error.message}`);
+         }
+         throw error;
+       } 
+       setDbStatus(prev => ({ ...prev, online: true, rlsBlocked: false, lessonCount: payload.length }));
+       alert(`✅ ĐÃ ĐỒNG BỘ THÀNH CÔNG ${payload.length} BÀI HỌC LÊN SUPABASE CLOUD!`); 
+     } catch (e: any) { 
+       console.error("Lỗi đồng bộ Cloud:", e); 
+     } finally {
+       setIsLoading(false); 
+     }
   };
 
   const handleFileUpload = async (id: string, field: string, file: File, isGallery: boolean = false) => { setIsLoading(true); try { const fileExt = file.name.split('.').pop(); const filePath = `uploads/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`; const { error } = await supabase.storage.from('assets').upload(filePath, file); if (error) throw error; const { data } = supabase.storage.from('assets').getPublicUrl(filePath); isGallery ? handleUpdateGalleryItem(id, field, data.publicUrl) : updateAdminData(id, field, data.publicUrl); } catch (e: any) { alert(`❌ Lỗi tải lên: ${e.message}`); } finally { setIsLoading(false); } };
@@ -626,7 +814,7 @@ export default function App() {
   const handleCreateMeshData = (meshName: string) => { updateMonuData((m: any) => ({ ...m, meshData: { ...m.meshData, [meshName]: { title: "TÊN BỘ PHẬN", specs: [{ id: 'info1', icon: '📌', title: 'Thông tin', summary: 'Tóm tắt...', fullText: ['Chi tiết...'] }], historyNotes: 'Ghi chú cho bộ phận này...' } } })); };
   const handleDeleteMeshData = (meshName: string) => { if (!window.confirm(`Xóa toàn bộ dữ liệu bộ phận này?`)) return; updateMonuData((m: any) => { const newMeshData = { ...m.meshData }; delete newMeshData[meshName]; return { ...m, meshData: newMeshData }; }); setSelectedMeshName(''); };
   
-  const handleAddImage = () => { updateMonuData((m: any) => ({ ...m, gallery: [...(m.gallery || []), { id: `gal-${Date.now()}`, url: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80', title: 'Tư liệu mới', type: viewMode === 'ar' || viewMode === 'game' || viewMode === 'hex' || viewMode === 'npc' || viewMode === 'mask' ? 'normal' : viewMode, description: '', contextDescription: '', modelPath: '', videoUrl: '' }] })); };
+  const handleAddImage = () => { updateMonuData((m: any) => ({ ...m, gallery: [...(m.gallery || []), { id: `gal-${Date.now()}`, url: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80', title: 'Tư liệu mới', type: (viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' ? 'normal' : viewMode, description: '', contextDescription: '', modelPath: '', videoUrl: '' }] })); };
   const handleDeleteImage = (imgToDelete: any) => { if (!window.confirm(`Xóa ảnh này?`)) return; updateMonuData((m: any) => ({ ...m, gallery: m.gallery.filter((img: any) => img.id !== imgToDelete.id) })); setIsClosingModal(true); setTimeout(() => { setSelectedImage(null); setIsClosingModal(false); }, 350); };
   const handleUpdateGalleryItem = (imgId: string, field: string, value: string) => { setSelectedImage((prev: any) => ({ ...prev, [field]: value })); updateMonuData((m: any) => ({ ...m, gallery: m.gallery.map((img: any) => img.id === imgId ? { ...img, [field]: value } : img) })); };
 
@@ -723,111 +911,638 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
       <div className={`global-loader ${isLoading ? 'visible' : 'hidden'}`}>
         <div className="spinner"></div><div className="loader-text">Đang xử lý...</div>
       </div>
-{/*LANDING PAGE DAU TIEN*/}
+{/* LANDING PAGE - MINIMALIST, SLEEK, ELEGANT, SIMPLE & MODERN */}
       {page === 'landing' && (
-        <div className="landing-wrapper">
-          <div className="landing-inner">
-            <nav className="landing-nav">
-  <div className="logo">🏛️ Heritage Studio</div>
-  <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-    {!currentUser ? (
-      <>
-        <span 
-          onClick={() => { setAuthMode('login'); setPage('student-auth'); }}
-          style={{ cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', border: '1px solid #475569' }}
-        >
-          Đăng nhập
-        </span>
-        <span 
-          onClick={() => { setAuthMode('register'); setPage('student-auth'); }}
-          style={{ cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', background: '#f59e0b', color: '#0f172a', fontWeight: 'bold' }}
-        >
-          Đăng ký
-        </span>
-      </>
-    ) : (
-      <>
-        {/* Huy hiệu Role */}
-        <span style={{ 
-          fontSize: '12px', 
-          fontWeight: 'bold', 
-          padding: '4px 8px', 
-          borderRadius: '6px', 
-          color: '#fff',
-          background: role === 'admin' ? '#ef4444' : role === 'teacher' ? '#3b82f6' : '#10b981' 
-        }}>
-          {role === 'admin' ? '👑 Admin' : role === 'teacher' ? '👨‍🏫 Giáo viên' : '🎓 Học sinh'}
-        </span>
+        <div className={`landing-wrapper min-h-screen w-full flex flex-col relative font-sans overflow-x-hidden transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-zinc-950 text-zinc-100 selection:bg-white/20 selection:text-white' 
+            : 'bg-[#fafafa] text-zinc-900 selection:bg-zinc-900/10 selection:text-zinc-950'
+        }`}>
+          {/* Subtle Ambient Background Light (Minimalist - Single quiet silver glow) */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] pointer-events-none overflow-hidden z-0" aria-hidden="true">
+            <div className={`absolute top-[-30%] left-1/2 -translate-x-1/2 w-[700px] h-[350px] rounded-full blur-3xl ${
+              isDarkMode 
+                ? 'bg-gradient-to-b from-white/[0.04] via-white/[0.015] to-transparent' 
+                : 'bg-gradient-to-b from-zinc-300/[0.25] via-zinc-200/[0.1] to-transparent'
+            }`}></div>
+          </div>
 
-        {/* Nút vào CMS cho Admin & Giáo viên */}
-        {(role === 'admin' || role === 'teacher') && (
-          <span 
-            onClick={() => handleNavigateToPage('admin-dashboard')} 
-            style={{ cursor: 'pointer', color: '#60a5fa', fontWeight: 'bold' }}
-          >
-            ⚙️ Quản lý bài học
-          </span>
-        )}
-
-        <span onClick={() => handleNavigateToPage('split-choice')} style={{ cursor: 'pointer' }}>
-          Vào bài học ({currentUser.user_metadata?.full_name || currentUser.email})
-        </span>
-
-        <button
-  type="button"
-  onClick={handleLogout}
-  style={{
-    background: 'rgba(239, 68, 68, 0.15)',
-    color: '#f87171',
-    border: '1px solid #ef4444',
-    padding: '6px 14px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '13px'
-  }}
->
-  Đăng xuất
-</button>
-      </>
-    )}
-
-    <button onClick={() => setIsDarkMode(!isDarkMode)} style={{background: 'transparent', border: 'none', fontSize: '22px', cursor: 'pointer', marginLeft: '8px'}} title="Chuyển đổi giao diện">
-      {isDarkMode ? '☀️' : '🌙'}
-    </button>
-  </div>
-</nav>
-            <div className="landing-hero">
-              <div className="hero-content">
-                <h1>Khám phá quá khứ,<br />chạm vào hiện tại.</h1>
-                <p>Hệ thống Học liệu Điện tử bám sát SGK Lịch sử 10 (Kết nối tri thức), ứng dụng công nghệ 3D/VR giúp bài giảng trực quan.</p>
-                <div className="hero-buttons">
-                  {currentUser ? (
-                    <button className="btn-primary" onClick={() => handleNavigateToPage('split-choice')}>MỞ BÀI GIẢNG 3D</button>
-                  ) : (
-                    <button className="btn-primary" onClick={() => { setAuthMode('login'); setPage('student-auth'); }}>ĐĂNG NHẬP ĐỂ VÀO HỌC</button>
-                  )}
-                  {(role === 'admin' || role === 'teacher') && (
-                    <button className="btn-outline" onClick={() => handleNavigateToPage('admin-dashboard')}>TRUNG TÂM QUẢN LÝ (CMS)</button>
-                  )}
+          {/* Minimalist Floating Navigation Header */}
+          <header className={`sticky top-0 z-50 w-full backdrop-blur-xl border-b transition-colors duration-300 ${
+            isDarkMode ? 'bg-zinc-950/75 border-white/5' : 'bg-white/80 border-zinc-200/80'
+          }`}>
+            <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+              {/* Brand Logo */}
+              <div 
+                className="flex items-center gap-3 cursor-pointer select-none group"
+                onClick={() => handleNavigateToPage('landing')}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                  isDarkMode 
+                    ? 'bg-white/5 border border-white/10 text-zinc-200 group-hover:border-white/25 group-hover:bg-white/10' 
+                    : 'bg-zinc-100 border border-zinc-200 text-zinc-800 group-hover:border-zinc-300 group-hover:bg-zinc-200/50'
+                }`}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2L2 7h20L12 2z"/>
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className={`font-semibold text-[15px] tracking-tight transition-colors ${
+                    isDarkMode ? 'text-white group-hover:text-zinc-200' : 'text-zinc-900 group-hover:text-zinc-700'
+                  }`}>Heritage Studio</span>
+                  <span className={`text-[10px] font-medium tracking-wider uppercase ${
+                    isDarkMode ? 'text-zinc-400' : 'text-zinc-500'
+                  }`}>Lịch sử 10 • 3D Edu</span>
                 </div>
               </div>
-              <div className="hero-featured-image">
-                <div className="featured-image-wrapper">
-                  <img src="https://cas.stthomas.edu/_media-library/_images/history/1920x1080/stthomas-history-time.jpg" alt="Heritage" />
-                  <div className="featured-overlay"></div>
-                </div>
-                <div className="floating-badge badge-1"><span className="badge-icon">🥽</span><div className="badge-text">Thực tế ảo VR</div></div>
-                <div className="floating-badge badge-2"><span className="badge-icon">🗿</span><div className="badge-text">Phục dựng 3D</div></div>
+
+              {/* Desktop Nav Actions */}
+              <div className="hidden md:flex items-center gap-3">
+                <button 
+                  type="button" 
+                  className={`text-xs font-medium px-3.5 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                    isDarkMode 
+                      ? 'text-zinc-300 hover:text-white border-white/10 hover:border-white/20 hover:bg-white/5' 
+                      : 'text-zinc-700 hover:text-zinc-950 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100'
+                  }`}
+                  onClick={() => handleNavigateToPage('split-choice')}
+                  title="Khám phá ngay bài học 3D không cần tài khoản"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Khám phá thử</span>
+                </button>
+
+                {!currentUser ? (
+                  <>
+                    <button 
+                      type="button" 
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                        isDarkMode 
+                          ? 'text-zinc-300 hover:text-white hover:bg-white/5' 
+                          : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+                      }`}
+                      onClick={() => { setAuthMode('login'); setPage('student-auth'); }}
+                    >
+                      Đăng nhập
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`text-xs font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-sm cursor-pointer ${
+                        isDarkMode 
+                          ? 'text-zinc-950 bg-white hover:bg-zinc-100' 
+                          : 'text-white bg-zinc-950 hover:bg-zinc-800'
+                      }`}
+                      onClick={() => { setAuthMode('register'); setPage('student-auth'); }}
+                    >
+                      Đăng ký
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                      role === 'admin' 
+                        ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
+                        : role === 'teacher' 
+                          ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' 
+                          : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                    }`}>
+                      {role === 'admin' ? 'Admin' : role === 'teacher' ? 'Giáo viên' : 'Học sinh'}
+                    </span>
+
+                    {(role === 'admin' || role === 'teacher') && (
+                      <button 
+                        type="button"
+                        className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                          isDarkMode 
+                            ? 'text-zinc-300 hover:text-white border-white/10 hover:border-white/20' 
+                            : 'text-zinc-700 hover:text-zinc-950 border-zinc-200 hover:border-zinc-300'
+                        }`}
+                        onClick={() => handleNavigateToPage('admin-dashboard')}
+                      >
+                        CMS Quản lý
+                      </button>
+                    )}
+
+                    <div 
+                      className={`text-xs px-3 py-1.5 rounded-full border cursor-pointer transition-all flex items-center gap-1.5 ${
+                        isDarkMode 
+                          ? 'text-zinc-300 hover:text-white bg-white/5 border-white/10 hover:border-white/20' 
+                          : 'text-zinc-700 hover:text-zinc-950 bg-zinc-100 border-zinc-200 hover:border-zinc-300'
+                      }`}
+                      onClick={() => handleNavigateToPage('split-choice')}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>{currentUser.user_metadata?.full_name || currentUser.email}</span>
+                    </div>
+
+                    <button 
+                      type="button" 
+                      className="text-xs font-medium text-zinc-400 hover:text-red-500 px-2.5 py-1.5 rounded-full hover:bg-red-500/10 transition-all cursor-pointer"
+                      onClick={handleLogout}
+                    >
+                      Thoát
+                    </button>
+                  </>
+                )}
+
+                {/* Single Desktop Theme Toggle */}
+                <button 
+                  type="button"
+                  className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all text-sm cursor-pointer ml-1 ${
+                    isDarkMode 
+                      ? 'border-white/10 hover:border-white/25 bg-white/5 text-zinc-300 hover:text-white' 
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-100 text-zinc-700 hover:text-zinc-950'
+                  }`}
+                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+                  aria-label="Đổi giao diện"
+                >
+                  {isDarkMode ? '☀️' : '🌙'}
+                </button>
+              </div>
+
+              {/* Mobile Controls (Hidden on desktop) */}
+              <div className="flex md:hidden items-center gap-2">
+                <button 
+                  type="button"
+                  className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer ${
+                    isDarkMode ? 'border-white/10 bg-white/5 text-zinc-300' : 'border-zinc-200 bg-zinc-100 text-zinc-700'
+                  }`}
+                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  aria-label="Đổi giao diện"
+                >
+                  {isDarkMode ? '☀️' : '🌙'}
+                </button>
+                <button 
+                  type="button"
+                  className={`w-8 h-8 rounded-full border flex items-center justify-center cursor-pointer ${
+                    isDarkMode ? 'border-white/10 bg-white/5 text-zinc-300' : 'border-zinc-200 bg-zinc-100 text-zinc-700'
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  aria-label="Menu"
+                >
+                  {isMobileMenuOpen ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                  )}
+                </button>
               </div>
             </div>
-          </div>
+
+            {/* Mobile Menu Drawer */}
+            {isMobileMenuOpen && (
+              <div className={`md:hidden border-t backdrop-blur-2xl p-5 flex flex-col gap-2.5 animate-fadeIn ${
+                isDarkMode ? 'border-white/5 bg-zinc-950/95' : 'border-zinc-200 bg-white/95'
+              }`}>
+                <button 
+                  type="button" 
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-medium text-center ${
+                    isDarkMode ? 'text-zinc-200 bg-white/5 border border-white/10' : 'text-zinc-800 bg-zinc-100 border border-zinc-200'
+                  }`}
+                  onClick={() => { handleNavigateToPage('split-choice'); setIsMobileMenuOpen(false); }}
+                >
+                  Khám phá bài học thử
+                </button>
+                {!currentUser ? (
+                  <>
+                    <button 
+                      type="button" 
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-medium text-center ${
+                        isDarkMode ? 'text-zinc-300 border border-white/10' : 'text-zinc-700 border border-zinc-200'
+                      }`}
+                      onClick={() => { setAuthMode('login'); setPage('student-auth'); setIsMobileMenuOpen(false); }}
+                    >
+                      Đăng nhập
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-center ${
+                        isDarkMode ? 'text-zinc-950 bg-white' : 'text-white bg-zinc-950'
+                      }`}
+                      onClick={() => { setAuthMode('register'); setPage('student-auth'); setIsMobileMenuOpen(false); }}
+                    >
+                      Đăng ký tài khoản
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`w-full py-2 text-xs text-center ${
+                        isDarkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                      onClick={() => { setShowLogin(true); setIsMobileMenuOpen(false); }}
+                    >
+                      Cổng Giáo viên (CMS)
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      type="button" 
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs text-center ${
+                        isDarkMode ? 'text-zinc-200 bg-white/5 border border-white/10' : 'text-zinc-800 bg-zinc-100 border border-zinc-200'
+                      }`}
+                      onClick={() => { handleNavigateToPage('split-choice'); setIsMobileMenuOpen(false); }}
+                    >
+                      Vào học: {currentUser.user_metadata?.full_name || currentUser.email}
+                    </button>
+                    {(role === 'admin' || role === 'teacher') && (
+                      <button 
+                        type="button" 
+                        className="w-full py-2 text-xs text-blue-500 text-center"
+                        onClick={() => { handleNavigateToPage('admin-dashboard'); setIsMobileMenuOpen(false); }}
+                      >
+                        CMS Quản trị bài học
+                      </button>
+                    )}
+                    <button 
+                      type="button" 
+                      className="w-full py-2 text-xs text-red-500 text-center"
+                      onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                    >
+                      Đăng xuất
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 relative z-10 flex flex-col">
+            {/* Hero Section */}
+            <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center py-12 lg:py-20">
+              {/* Left Column: Headline & Minimalist CTAs */}
+              <div className="lg:col-span-7 flex flex-col items-start text-left">
+                {/* Minimalist Top Pill */}
+                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-6 backdrop-blur-sm ${
+                  isDarkMode 
+                    ? 'bg-white/5 border border-white/10 text-zinc-300' 
+                    : 'bg-zinc-100 border border-zinc-200 text-zinc-700'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Học liệu số 3D/VR • Bám sát SGK Lịch sử 10</span>
+                </div>
+
+                {/* Sleek, Elegant Headline */}
+                <h1 className={`font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.12] mb-6 ${
+                  isDarkMode ? 'text-white' : 'text-zinc-950'
+                }`}>
+                  Khám phá quá khứ,<br />
+                  <span className={`text-transparent bg-clip-text ${
+                    isDarkMode 
+                      ? 'bg-gradient-to-r from-zinc-200 via-zinc-400 to-zinc-500' 
+                      : 'bg-gradient-to-r from-zinc-950 via-zinc-600 to-zinc-400'
+                  }`}>
+                    chạm vào hiện tại.
+                  </span>
+                </h1>
+
+                {/* Calm, readable text */}
+                <p className={`text-base sm:text-lg leading-relaxed font-normal max-w-xl mb-8 ${
+                  isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                }`}>
+                  Hệ thống học liệu điện tử 3D tương tác và thực tế ảo bám sát bộ sách Kết nối tri thức. 
+                  Trực quan hóa các nền văn minh nhân loại và di sản lịch sử với độ chi tiết chân thực.
+                </p>
+
+                {/* Minimalist CTA Buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mb-9">
+                  {currentUser ? (
+                    <button 
+                      type="button" 
+                      className={`font-medium text-sm px-6 py-3.5 rounded-full transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2 group cursor-pointer ${
+                        isDarkMode 
+                          ? 'bg-white text-zinc-950 hover:bg-zinc-100' 
+                          : 'bg-zinc-950 text-white hover:bg-zinc-800'
+                      }`}
+                      onClick={() => handleNavigateToPage('split-choice')}
+                    >
+                      <span>Mở bài giảng 3D</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                  ) : (
+                    <button 
+                      type="button" 
+                      className={`font-medium text-sm px-6 py-3.5 rounded-full transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2 group cursor-pointer ${
+                        isDarkMode 
+                          ? 'bg-white text-zinc-950 hover:bg-zinc-100' 
+                          : 'bg-zinc-950 text-white hover:bg-zinc-800'
+                      }`}
+                      onClick={() => { setAuthMode('login'); setPage('student-auth'); }}
+                    >
+                      <span>Đăng nhập để vào học</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                  )}
+
+                  <button 
+                    type="button" 
+                    className={`px-5 py-3.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 text-sm backdrop-blur-sm cursor-pointer ${
+                      isDarkMode 
+                        ? 'bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-700/60 hover:border-zinc-500 text-zinc-200 hover:text-white' 
+                        : 'bg-white hover:bg-zinc-50 border border-zinc-200 hover:border-zinc-300 text-zinc-800 hover:text-zinc-950 shadow-xs'
+                    }`}
+                    onClick={() => handleNavigateToPage('split-choice')}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Trải nghiệm ngay (Khách)</span>
+                  </button>
+
+                  {(role === 'admin' || role === 'teacher') && (
+                    <button 
+                      type="button" 
+                      className={`px-5 py-3.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 text-sm cursor-pointer ${
+                        isDarkMode 
+                          ? 'border border-zinc-700/80 hover:border-zinc-500 text-zinc-300 hover:text-white' 
+                          : 'border border-zinc-300 hover:border-zinc-400 text-zinc-700 hover:text-zinc-950'
+                      }`}
+                      onClick={() => handleNavigateToPage('admin-dashboard')}
+                    >
+                      <span>Quản lý (CMS)</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Subtle Value Indicators */}
+                <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium ${
+                  isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                }`}>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Mô hình 3D & Mặt cắt 360°</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>AR / VR đa nền tảng</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Chuẩn SGK Lịch sử 10</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Sleek 3D Showcase Frame */}
+              <div className="lg:col-span-5 w-full">
+                <div className={`relative rounded-2xl overflow-hidden border backdrop-blur-xl shadow-2xl transition-all duration-300 group ${
+                  isDarkMode 
+                    ? 'border-white/10 bg-zinc-900/40' 
+                    : 'border-zinc-200 bg-white shadow-zinc-200/50'
+                }`}>
+                  {/* Top Bar */}
+                  <div className={`px-4 py-3 border-b flex items-center justify-between text-xs ${
+                    isDarkMode 
+                      ? 'border-white/5 bg-zinc-950/40 text-zinc-400' 
+                      : 'border-zinc-100 bg-zinc-50 text-zinc-500'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span className={`font-mono text-[11px] tracking-wide ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>3D VIEWER LIVE</span>
+                    </div>
+                    <span className="text-[11px] font-medium">SGK Lịch sử 10</span>
+                  </div>
+
+                  {/* Artifact Image with refined frosted badges */}
+                  <div className="relative w-full aspect-[4/3] overflow-hidden bg-zinc-950">
+                    <img 
+                      src={HERO_ARTIFACTS[landingArtifactIndex].image} 
+                      alt={HERO_ARTIFACTS[landingArtifactIndex].name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      loading="eager"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+
+                    {/* Frosted Badges */}
+                    <div className="absolute top-3 left-3 px-3 py-1 rounded-full backdrop-blur-md bg-black/50 border border-white/15 text-white text-[11px] font-medium flex items-center gap-1.5 shadow-lg">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span>AR / VR Sẵn sàng</span>
+                    </div>
+
+                    <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full backdrop-blur-md bg-black/50 border border-white/15 text-white text-[11px] font-medium shadow-lg">
+                      Phục dựng 3D 360°
+                    </div>
+                  </div>
+
+                  {/* Info Panel & Clean Chips */}
+                  <div className={`p-4 sm:p-5 border-t flex flex-col gap-3 ${
+                    isDarkMode 
+                      ? 'border-white/5 bg-zinc-950/60' 
+                      : 'border-zinc-100 bg-white'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className={`text-sm font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+                          {HERO_ARTIFACTS[landingArtifactIndex].name}
+                        </h3>
+                        <p className={`text-xs font-normal ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                          {HERO_ARTIFACTS[landingArtifactIndex].period}
+                        </p>
+                      </div>
+                      <button 
+                        type="button" 
+                        className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors cursor-pointer ${
+                          isDarkMode 
+                            ? 'text-zinc-300 hover:text-white border-white/10 hover:border-white/20' 
+                            : 'text-zinc-700 hover:text-zinc-950 border-zinc-200 hover:border-zinc-300'
+                        }`}
+                        onClick={() => handleNavigateToPage('split-choice')}
+                      >
+                        Vào xem →
+                      </button>
+                    </div>
+
+                    {/* Artifact Selector Chips (no horizontal scrollbar) */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {HERO_ARTIFACTS.map((artifact, idx) => (
+                        <button
+                          key={artifact.id}
+                          type="button"
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-xs transition-all text-center truncate cursor-pointer ${
+                            landingArtifactIndex === idx 
+                              ? (isDarkMode 
+                                  ? 'bg-white/10 text-white border border-white/20 font-medium' 
+                                  : 'bg-zinc-900 text-white border border-zinc-900 font-medium shadow-xs')
+                              : (isDarkMode 
+                                  ? 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent' 
+                                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border border-transparent')
+                          }`}
+                          onClick={() => setLandingArtifactIndex(idx)}
+                        >
+                          {artifact.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Minimalist Feature Bento Grid */}
+            <section className={`py-16 border-t ${isDarkMode ? 'border-white/5' : 'border-zinc-200'}`}>
+              <div className="max-w-2xl mx-auto text-center mb-12">
+                <span className={`text-[11px] font-mono tracking-widest uppercase mb-2 block ${
+                  isDarkMode ? 'text-zinc-400' : 'text-zinc-500'
+                }`}>
+                  CÔNG NGHỆ & HỌC LIỆU
+                </span>
+                <h2 className={`text-2xl sm:text-3xl font-bold tracking-tight mb-3 ${
+                  isDarkMode ? 'text-white' : 'text-zinc-950'
+                }`}>
+                  Phương pháp trực quan thế hệ mới
+                </h2>
+                <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  Tối giản thao tác, tối đa hóa trải nghiệm thị giác và tư duy không gian cho học sinh.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                {/* Card 1 */}
+                <div className={`rounded-2xl border transition-all duration-300 p-6 flex flex-col group backdrop-blur-sm ${
+                  isDarkMode 
+                    ? 'border-white/5 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-white/15' 
+                    : 'border-zinc-200/80 bg-white hover:bg-zinc-50/80 hover:border-zinc-300 shadow-xs'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors mb-4 ${
+                    isDarkMode 
+                      ? 'bg-white/5 border border-white/10 text-zinc-300 group-hover:text-white' 
+                      : 'bg-zinc-100 border border-zinc-200 text-zinc-700 group-hover:text-zinc-950'
+                  }`}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                      <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                  </div>
+                  <h3 className={`text-sm font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Mô hình 3D & Giải phẫu</h3>
+                  <p className={`text-xs leading-relaxed flex-1 mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    Quan sát cấu trúc bên trong Kim tự tháp và hoa văn cổ vật ở mọi góc độ với chuẩn WebGL mượt mà.
+                  </p>
+                  <span className={`text-[10px] font-mono tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>3D ENGINE</span>
+                </div>
+
+                {/* Card 2 */}
+                <div className={`rounded-2xl border transition-all duration-300 p-6 flex flex-col group backdrop-blur-sm ${
+                  isDarkMode 
+                    ? 'border-white/5 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-white/15' 
+                    : 'border-zinc-200/80 bg-white hover:bg-zinc-50/80 hover:border-zinc-300 shadow-xs'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors mb-4 ${
+                    isDarkMode 
+                      ? 'bg-white/5 border border-white/10 text-zinc-300 group-hover:text-white' 
+                      : 'bg-zinc-100 border border-zinc-200 text-zinc-700 group-hover:text-zinc-950'
+                  }`}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M2 12h20M2 12a10 10 0 0 1 10-10 10 10 0 0 1 10 10M2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </div>
+                  <h3 className={`text-sm font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Thực tế ảo AR & VR</h3>
+                  <p className={`text-xs leading-relaxed flex-1 mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    Chiếu cổ vật lên không gian thực qua camera di động hoặc trải nghiệm kính VR mà không cần cài ứng dụng.
+                  </p>
+                  <span className={`text-[10px] font-mono tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>WEBXR READY</span>
+                </div>
+
+                {/* Card 3 */}
+                <div className={`rounded-2xl border transition-all duration-300 p-6 flex flex-col group backdrop-blur-sm ${
+                  isDarkMode 
+                    ? 'border-white/5 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-white/15' 
+                    : 'border-zinc-200/80 bg-white hover:bg-zinc-50/80 hover:border-zinc-300 shadow-xs'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors mb-4 ${
+                    isDarkMode 
+                      ? 'bg-white/5 border border-white/10 text-zinc-300 group-hover:text-white' 
+                      : 'bg-zinc-100 border border-zinc-200 text-zinc-700 group-hover:text-zinc-950'
+                  }`}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                  </div>
+                  <h3 className={`text-sm font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Chuẩn SGK Lịch sử 10</h3>
+                  <p className={`text-xs leading-relaxed flex-1 mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    Đồng bộ kiến thức bộ sách Kết nối tri thức, tích hợp hồ sơ lịch sử, niên đại và câu hỏi tương tác.
+                  </p>
+                  <span className={`text-[10px] font-mono tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>GDPT 2018</span>
+                </div>
+
+                {/* Card 4 */}
+                <div className={`rounded-2xl border transition-all duration-300 p-6 flex flex-col group backdrop-blur-sm ${
+                  isDarkMode 
+                    ? 'border-white/5 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-white/15' 
+                    : 'border-zinc-200/80 bg-white hover:bg-zinc-50/80 hover:border-zinc-300 shadow-xs'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors mb-4 ${
+                    isDarkMode 
+                      ? 'bg-white/5 border border-white/10 text-zinc-300 group-hover:text-white' 
+                      : 'bg-zinc-100 border border-zinc-200 text-zinc-700 group-hover:text-zinc-950'
+                  }`}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                  </div>
+                  <h3 className={`text-sm font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-zinc-900'}`}>Lớp học Đồng bộ 4.0</h3>
+                  <p className={`text-xs leading-relaxed flex-1 mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    Giáo viên điều phối và chia sẻ góc nhìn mô hình 3D trực tiếp tới thiết bị học sinh theo thời gian thực.
+                  </p>
+                  <span className={`text-[10px] font-mono tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>LIVE SYNC</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Minimalist Footer */}
+            <footer className={`border-t py-8 mt-auto ${isDarkMode ? 'border-white/5 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+                <div>
+                  © 2026 Heritage Studio • Nền tảng học liệu điện tử 3D SGK Lịch sử 10.
+                </div>
+                <div className="flex items-center gap-5">
+                  <button 
+                    type="button" 
+                    className={`transition-colors cursor-pointer ${isDarkMode ? 'hover:text-zinc-200' : 'hover:text-zinc-900'}`}
+                    onClick={() => handleNavigateToPage('split-choice')}
+                  >
+                    Bài giảng 3D
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`transition-colors cursor-pointer ${isDarkMode ? 'hover:text-zinc-200' : 'hover:text-zinc-900'}`}
+                    onClick={() => { setAuthMode('login'); setPage('student-auth'); }}
+                  >
+                    Học sinh
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`transition-colors cursor-pointer ${isDarkMode ? 'hover:text-zinc-200' : 'hover:text-zinc-900'}`}
+                    onClick={() => setShowLogin(true)}
+                  >
+                    Cổng Giáo viên
+                  </button>
+                </div>
+              </div>
+            </footer>
+          </main>
+
+          {/* Teacher Login Modal preserved 100% */}
           {showLogin && (
             <div className="login-modal-overlay">
               <form className="login-modal" onSubmit={handleLogin}>
-                <h2>Xác thực Giáo viên</h2><p>Vui lòng nhập mật khẩu quản trị.</p>
-                <input type="password" placeholder="Mật khẩu (admin123)" value={password} onChange={e => setPassword(e.target.value)} autoFocus />
-                <div className="modal-actions"><button type="button" onClick={() => setShowLogin(false)}>Hủy</button><button type="submit" className="btn-primary">Đăng nhập</button></div>
+                <h2>Xác thực Giáo viên</h2>
+                <p>Vui lòng nhập mật khẩu quản trị.</p>
+                <input 
+                  type="password" 
+                  placeholder="Mật khẩu (admin123)" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  autoFocus 
+                />
+                <div className="modal-actions">
+                  <button type="button" onClick={() => setShowLogin(false)}>Hủy</button>
+                  <button type="submit" className="btn-primary">Đăng nhập</button>
+                </div>
               </form>
             </div>
           )}
@@ -928,6 +1643,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
            <header className="dashboard-header">
               <div className="logo">⚙️ TRUNG TÂM ĐIỀU KHIỂN CLOUD (CMS)</div>
               <div className="dashboard-actions">
+                 <button className="btn-outline outline-dark" style={{ border: '1px solid #38bdf8', color: '#38bdf8' }} onClick={handleResetToInitialData} title="Khôi phục đầy đủ bài học gốc có 3D, mặt cắt, VR tour">↺ Nạp bài học gốc</button>
                  <button className="btn-export" style={{ background: '#0284c7' }} onClick={handleSaveToCloud}>☁️ Lưu lên Đám mây</button>
                  <button className="btn-outline outline-dark" onClick={() => handleNavigateToPage('landing')}>Đăng xuất</button>
               </div>
@@ -953,23 +1669,16 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                 {/* ======================================= */}
                                 {/* MENU TABS CỦA TRUNG TÂM ĐIỀU KHIỂN (CMS) */}
                                 {/* ======================================= */}
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', background: '#f8fafc', padding: '8px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                <div className="flex gap-2 mb-6 flex-wrap bg-zinc-900/90 p-2 rounded-2xl border border-white/10">
                                     {['general', 'games', 'ar_masks', 'ar_hands', 'report'].map(tab => (
                                         <button 
                                             key={tab} 
                                             onClick={(e) => { e.preventDefault(); setActiveAdminTab(tab as any); }}
-                                            style={{ 
-                                                padding: '10px 16px', 
-                                                borderRadius: '8px', 
-                                                border: 'none', 
-                                                cursor: 'pointer', 
-                                                fontWeight: 'bold', 
-                                                fontSize: '13px',
-                                                background: activeAdminTab === tab ? (tab === 'ar_masks' ? '#0ea5e9' : tab === 'ar_hands' ? '#f59e0b' : '#334155') : 'transparent',
-                                                color: activeAdminTab === tab ? 'white' : '#64748b',
-                                                transition: 'all 0.2s',
-                                                boxShadow: activeAdminTab === tab ? '0 4px 6px rgba(0,0,0,0.1)' : 'none'
-                                            }}
+                                            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                                activeAdminTab === tab 
+                                                    ? (tab === 'ar_masks' ? 'bg-cyan-500 text-black shadow-md' : tab === 'ar_hands' ? 'bg-amber-500 text-black shadow-md' : 'bg-white text-zinc-950 shadow-md')
+                                                    : 'bg-transparent text-zinc-400 hover:text-white hover:bg-white/5'
+                                            }`}
                                         >
                                             {tab === 'general' ? '📄 Thông tin chung' : 
                                              tab === 'games' ? '🎮 Các Mini-Games' : 
@@ -1317,81 +2026,212 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
            </div>
         </div>
       )}
-{/* PAGE CHINH*/}
+{/* PAGE CHINH - WORKSPACE STUDIO 3D & HOLOGRAM */}
       {page === 'app' && activeMonu && (
-        <div className="cas-container animate-fade-in">
+        <div className="cas-container animate-fade-in relative">
+          {/* Studio Frosted Header */}
           <header className="cas-header">
-            <div className="logo" onClick={() => handleNavigateToPage('landing')}>🏛️ Heritage Studio</div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              
+            <div className="logo" onClick={() => handleNavigateToPage('landing')}>
+              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-200 shadow-sm">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2L2 7h20L12 2z"/>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm tracking-tight">Heritage Studio</span>
+                <span className="text-[10px] font-medium tracking-wider uppercase text-zinc-400">3D Workspace</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
               {role === 'admin' ? (
-                <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '12px', border: '1px solid #334155' }}>
-                  <button onClick={() => setIsClassroomSyncActive(!isClassroomSyncActive)} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: isClassroomSyncActive ? '#ef4444' : '#10b981', color: 'white', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}>
-                    {isClassroomSyncActive ? '📢 Đang Phát Sa Bàn' : '📢 Bật Sa Bàn Lớp Học'}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setIsClassroomSyncActive(!isClassroomSyncActive)} 
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isClassroomSyncActive 
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isClassroomSyncActive ? 'bg-red-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`}></span>
+                    <span>{isClassroomSyncActive ? 'Đang Phát Sa Bàn' : 'Bật Sa Bàn Lớp Học'}</span>
                   </button>
                   {isClassroomSyncActive && (viewMode === 'normal' || viewMode === 'section') && (
-                    <button onClick={handleSyncCameraAngle} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #3b82f6', background: '#1e3a8a', color: 'white', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', animation: 'fadeIn 0.3s' }}>🎥 Đồng bộ góc nhìn 3D</button>
+                    <button onClick={handleSyncCameraAngle} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 transition-all cursor-pointer">
+                      🎥 Đồng bộ góc nhìn 3D
+                    </button>
                   )}
                 </div>
               ) : (
-                <button onClick={() => setIsClassroomSyncActive(!isClassroomSyncActive)} style={{ padding: '8px 14px', borderRadius: '12px', border: '1px solid #475569', background: isClassroomSyncActive ? 'linear-gradient(90deg, #ea580c, #d35400)' : 'transparent', color: isClassroomSyncActive ? 'white' : '#cbd5e1', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', boxShadow: isClassroomSyncActive ? '0 0 15px rgba(234,88,12,0.3)' : 'none' }}>
-                  {isClassroomSyncActive ? '📡 Đang Nhận Tín Hiệu...' : '📡 Kết Nối Sa Bàn'}
+                <button 
+                  onClick={() => setIsClassroomSyncActive(!isClassroomSyncActive)} 
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isClassroomSyncActive 
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-sm' 
+                      : 'bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isClassroomSyncActive ? 'bg-amber-400 animate-pulse' : 'bg-zinc-500'}`}></span>
+                  <span>{isClassroomSyncActive ? 'Đang Nhận Tín Hiệu...' : 'Kết Nối Sa Bàn'}</span>
                 </button>
               )}
 
-              {role === 'admin' && <button className="btn-outline outline-dark" onClick={() => handleNavigateToPage('admin-dashboard')}>← CMS</button>}
-              {(role === 'guest' || role === 'student') && <button className="btn-outline outline-dark" onClick={() => handleNavigateToPage('lesson-choice')}>← Chọn bài khác</button>}
-              <button className="btn-primary" onClick={() => handleNavigateToPage('landing')}>Trang chủ</button>
-              {currentUser && <button className="btn-outline" style={{ background: '#ef4444', color: 'white', border: 'none' }} onClick={handleLogout}>Thoát</button>}
-              <button onClick={() => setIsDarkMode(!isDarkMode)} style={{background: 'transparent', border: 'none', fontSize: '22px', cursor: 'pointer', marginLeft: '16px'}} title="Chuyển đổi giao diện">
-                  {isDarkMode ? '☀️' : '🌙'}
+              {/* Supabase Database Connection Status Indicator */}
+              <div 
+                onClick={() => {
+                  if (dbStatus.rlsBlocked) setShowRlsHelpModal(true);
+                  else checkDatabaseConnection();
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono flex items-center gap-2 border transition-all cursor-pointer shadow-sm ${
+                  dbStatus.rlsBlocked 
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25' 
+                    : dbStatus.online 
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' 
+                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+                }`}
+                title="Trạng thái kết nối cơ sở dữ liệu Supabase. Bấm để kiểm tra lại hoặc xem hướng dẫn RLS."
+              >
+                <span className={`w-2 h-2 rounded-full ${
+                  dbStatus.rlsBlocked 
+                    ? 'bg-amber-400 animate-pulse' 
+                    : dbStatus.online 
+                      ? 'bg-emerald-400' 
+                      : 'bg-rose-400 animate-ping'
+                }`}></span>
+                <span>
+                  {dbStatus.rlsBlocked 
+                    ? 'Supabase: Cần mở RLS' 
+                    : dbStatus.online 
+                      ? `Supabase: Online ${dbStatus.lessonCount > 0 ? `(${dbStatus.lessonCount} bài)` : ''}` 
+                      : 'Supabase: Đang kết nối...'
+                  }
+                </span>
+              </div>
+
+              {/* Hologram Launch Button in Header */}
+              <button 
+                type="button" 
+                onClick={handleEnterHologram}
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                title="Chiếu mô hình 3D toàn màn hình cho thiết bị Hologram ngoại vi (Phím tắt: H)"
+              >
+                <span>🔮 Chiếu Hologram</span>
+              </button>
+
+              {role === 'admin' && (
+                <button className="px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer" onClick={() => handleNavigateToPage('admin-dashboard')}>
+                  ← CMS
+                </button>
+              )}
+              {(role === 'guest' || role === 'student') && (
+                <button className="px-3 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer" onClick={() => handleNavigateToPage('lesson-choice')}>
+                  ← Chọn bài khác
+                </button>
+              )}
+              <button className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-100 transition-all shadow-sm cursor-pointer" onClick={() => handleNavigateToPage('landing')}>
+                Trang chủ
+              </button>
+              {currentUser && (
+                <button className="px-2.5 py-1.5 rounded-full text-xs font-medium text-red-400 hover:bg-red-500/10 transition-all cursor-pointer" onClick={handleLogout}>
+                  Thoát
+                </button>
+              )}
+              <button 
+                onClick={() => setIsDarkMode(!isDarkMode)} 
+                className="w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-sm cursor-pointer text-zinc-300 hover:text-white transition-all ml-1"
+                title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
               </button>
             </div>
           </header>
 
           <main className="cas-main-grid">
+            {/* Left Sidebar: Lesson List */}
             <aside className="cas-sidebar-left">
-              <div className="section-label">{role === 'admin' ? 'DANH SÁCH (ADMIN)' : activeMonu.category.toUpperCase()}</div>
-              {displayedMonuments.filter(m => role === 'admin' || m.category === activeMonu.category).map((m: any) => (
-                <div key={m.id} className={`topic-card ${activeMonu.id === m.id ? 'active' : ''}`} onClick={() => { setActiveMonuId(m.id); setViewMode('normal'); }}>
-                  <span className="topic-icon">{m.icon}</span><div className="topic-info"><strong>{m.name}</strong></div>
-                </div>
-              ))}
+              <div className="section-label">
+                <span>{role === 'admin' ? 'DANH SÁCH BÀI HỌC (ADMIN)' : activeMonu.category.toUpperCase()}</span>
+                <span className="text-[10px] font-mono text-zinc-500">
+                  {displayedMonuments.filter(m => role === 'admin' || m.category === activeMonu.category).length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 overflow-y-auto">
+                {displayedMonuments.filter(m => role === 'admin' || m.category === activeMonu.category).map((m: any) => (
+                  <div key={m.id} className={`topic-card ${activeMonu.id === m.id ? 'active' : ''}`} onClick={() => { setActiveMonuId(m.id); setViewMode('normal'); }}>
+                    <span className="topic-icon">{m.icon}</span>
+                    <div className="topic-info">
+                      <strong>{m.name}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </aside>
 
+            {/* Center Viewport */}
             <section className="cas-viewport">
               {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
                 <div className={`viewport-header ${viewMode === 'tour' ? 'tour-mode' : ''}`}>
                   {role === 'admin' ? (
-                    <input className="admin-input-title" value={activeMonu.name || ''} onChange={(e) => handleUpdateName(e.target.value)} />
+                    <input className="admin-input-title" value={activeMonu.name || ''} onChange={(e) => handleUpdateName(e.target.value)} title="Bấm để sửa tên bài học" />
                   ) : (
                     <h2>{activeMonu.name} <span>{activeMonu.category}</span></h2>
                   )}
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <div className="view-mode-tabs">
                       <button className={viewMode === 'normal' ? 'active' : ''} onClick={() => setViewMode('normal')}>Bề mặt 3D</button>
                       <button className={viewMode === 'section' ? 'active' : ''} onClick={() => setViewMode('section')}>Mặt cắt</button>
-                      {activeMonu.tourUrl && <button className={`tour-btn ${viewMode === 'tour' ? 'active' : ''}`} onClick={() => setViewMode('tour')}>🌐 VR Tour</button>}
-                      {currentMainModelPath && <button className="ar-btn" onClick={() => setViewMode('ar')} style={{ color: '#d35400', background: 'transparent', fontWeight: 'bold', marginLeft: '4px' }}>📱 Xem AR</button>}
-                      
-                      {/* NÚT MỚI DÀNH CHO XƯỞNG MẶT NẠ AR */}
-                      <button className="game-btn" onClick={() => { setViewMode('mask'); }} style={{ color: '#ec4899', border: '1px solid #ec4899', fontWeight: 'bold', marginLeft: '4px', background: 'transparent' }}>🎭 Xưởng Mặt Nạ AR</button>
-                      <button className="game-btn" onClick={() => { setViewMode('hand'); setActiveHandIndex(null); }} style={{ color: '#f59e0b', border: '1px solid #f59e0b', fontWeight: 'bold', marginLeft: '4px', background: 'transparent' }}>🖐️ Xưởng Cổ Vật</button>
-                      {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && <button className="game-btn" onClick={() => { setViewMode('npc'); setNpcStep(0); setNpcFeedback(null); }} style={{ color: '#6366f1', border: '1px solid #6366f1', fontWeight: 'bold', marginLeft: '4px', background: 'transparent' }}>💬 Gặp Danh Nhân</button>}
-                      {activeMonu.gameData && activeMonu.gameData.length > 0 && <button className="game-btn" onClick={() => { setViewMode('game'); setSelectedRowIndex(null); setGameInput(''); setGameFeedback('idle'); setWrongCount(0); setShowExplanation(false); setShowRewardModal(false); setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' }))); }} style={{ color: '#10b981', border: '1px solid #10b981', fontWeight: 'bold', marginLeft: '4px', background: 'transparent' }}>🎮 Ô chữ</button>}
-                      {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && <button className="game-btn" onClick={() => { setViewMode('hex'); setShowHexSubmit(false); setHexReasoning(''); }} style={{ color: '#3b82f6', border: '1px solid #3b82f6', fontWeight: 'bold', marginLeft: '4px', background: 'transparent' }}>🧠 Lục giác</button>}
+                      {activeMonu.tourUrl && <button className={viewMode === 'tour' ? 'active' : ''} onClick={() => setViewMode('tour')}>VR Tour</button>}
+                      {currentMainModelPath && <button className={(viewMode as string) === 'ar' ? 'active' : ''} onClick={() => setViewMode('ar')}>Xem AR</button>}
+                      <button className={(viewMode as string) === 'mask' ? 'active' : ''} onClick={() => { setViewMode('mask'); }}>🎭 Mặt Nạ AR</button>
+                      <button className={(viewMode as string) === 'hand' ? 'active' : ''} onClick={() => { setViewMode('hand'); setActiveHandIndex(null); }}>🖐️ Cổ Vật</button>
+                      {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && <button className={(viewMode as string) === 'npc' ? 'active' : ''} onClick={() => { setViewMode('npc'); setNpcStep(0); setNpcFeedback(null); }}>💬 Danh Nhân</button>}
+                      {activeMonu.gameData && activeMonu.gameData.length > 0 && <button className={(viewMode as string) === 'game' ? 'active' : ''} onClick={() => { setViewMode('game'); setSelectedRowIndex(null); setGameInput(''); setGameFeedback('idle'); setWrongCount(0); setShowExplanation(false); setShowRewardModal(false); setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' }))); }}>🎮 Ô chữ</button>}
+                      {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && <button className={(viewMode as string) === 'hex' ? 'active' : ''} onClick={() => { setViewMode('hex'); setShowHexSubmit(false); setHexReasoning(''); }}>🧠 Lục giác</button>}
                     </div>
+
+
                   </div>
                 </div>
               )}
 
-              <div className="canvas-wrapper" style={(viewMode === 'ar' || viewMode === 'game' || viewMode === 'hex' || viewMode === 'npc' || viewMode === 'mask' || viewMode === 'hand') ? { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '420px', position: 'relative', overflow: 'hidden' } : { position: 'relative', flex: 1 }}>
+              <div className="canvas-wrapper" style={((viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '420px', position: 'relative', overflow: 'hidden' } : { position: 'relative', flex: 1 }}>
 
+                {/* Unified Studio Floating Toolbar (Chiếu Hologram & Tự xoay 360°) */}
+                {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && !isSketchfab(currentMainModelPath) && (
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+                    <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-zinc-900/85 hover:bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl transition-all">
+                      {/* Chiếu Hologram Button */}
+                      <button 
+                        type="button" 
+                        onClick={handleEnterHologram} 
+                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Toàn màn hình & Tự xoay 360° cho thiết bị Hologram ngoại vi (Phím tắt: H)"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                        <span>Chiếu Hologram</span>
+                      </button>
+
+                      {/* Auto Rotate Button */}
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAutoRotating(!isAutoRotating)} 
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isAutoRotating 
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                            : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10 hover:text-white'
+                        }`}
+                        title="Bật/Tắt tự động xoay mô hình (Phím cách Space)"
+                      >
+                        <span>{isAutoRotating ? '⏸ Dừng' : '🔄 Tự xoay'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 {/* 🎭 MÀN HÌNH TẠO MẶT NẠ AR (MASK MAKER) */}
-                {viewMode === 'mask' && (
-                  
+                {(viewMode as string) === 'mask' && (
                   <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', background: theme.bgMain, overflowY: 'auto' }}>
                       <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
                           <button className="back-btn" style={{ margin: 0, width: 'auto', background: theme.bgPanel, color: theme.textMain, border: `1px solid ${theme.border}` }} onClick={() => setViewMode('normal')}>← Trở lại Bài học</button>
@@ -1423,7 +2263,6 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                             </Center>
                                         )}
                                     </Suspense>
-                                  {/* ĐÃ BẬT ENABLE ZOOM = TRUE ĐỂ ZOOM RA/VÀO */}
                                   <OrbitControls enableZoom={true} minDistance={1} maxDistance={6} enablePan={false} autoRotate autoRotateSpeed={2} />
                               </Canvas>
                           </div>
@@ -1447,11 +2286,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
 
                             {(activeMaskIndex !== null && activeMonu.masks && activeMonu.masks[activeMaskIndex]) ? (() => {
                                           const selectedMask = activeMonu.masks[activeMaskIndex];
-                                          
-                                          // 1. Xác định key định tuyến dựa trên type (fallback về 'mask' nếu thiếu dữ liệu)
                                           const paramKey = selectedMask.type === 'earring' ? 'earring' : 'mask';
-                                          
-                                          // 2. Build URL với Dynamic Key
                                           const arUrl = `${window.location.origin}/face-ar.html?${paramKey}=${encodeURIComponent(selectedMask.glbUrl)}&audio=${encodeURIComponent(selectedMask.audioUrl || '')}`;
                                           
                                           return (
@@ -1476,7 +2311,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                 )}
 
                 {/* 🖐️ MÀN HÌNH TẠO AR CẦM TAY (HAND MAKER) */}
-                {viewMode === 'hand' && (
+                {(viewMode as string) === 'hand' && (
                     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', background: theme.bgMain, overflowY: 'auto' }}>
                         <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
                             <button className="back-btn" style={{ margin: 0, width: 'auto', background: theme.bgPanel, color: theme.textMain, border: `1px solid ${theme.border}` }} onClick={() => setViewMode('normal')}>← Trở lại Bài học</button>
@@ -1540,9 +2375,8 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     </div>
                   )}
 
-
                {/* GAME VISUAL NOVEL (NPC ROLEPLAY) */}
-                {viewMode === 'npc' && activeMonu.npcDialog && (
+                {(viewMode as string) === 'npc' && activeMonu.npcDialog && (
                    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 100 }}>
                         <button className="back-btn" onClick={() => setViewMode('normal')} style={{ background: theme.bgPanel, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Trở về 3D</button>
@@ -1570,11 +2404,8 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                         </div>
                       ) : (
                         npcStep < activeMonu.npcDialog.length ? (
-                          /* KHUNG THOẠI ĐƯỢC GHIM XUỐNG ĐÁY MÀN HÌNH */
                           <div style={{ position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '800px', zIndex: 20 }}>
                              <div style={{ background: theme.bgPanel, border: `2px solid #6366f1`, borderRadius: '16px', padding: '24px', paddingTop: '30px', boxShadow: '0 15px 30px rgba(0,0,0,0.5)', position: 'relative' }}>
-                                 
-                                 {/* TÊN NHÂN VẬT NỔI LÊN TRÊN VIỀN */}
                                  <div style={{ position: 'absolute', top: '-16px', left: '24px', background: '#6366f1', color: 'white', padding: '6px 16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', boxShadow: '0 4px 10px rgba(99, 102, 241, 0.4)' }}>
                                     Nhân vật Bí ẩn 👤
                                  </div>
@@ -1583,7 +2414,6 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                    <div>
                                      <p style={{ color: theme.textMain, fontSize: '16px', lineHeight: '1.6', margin: '0 0 20px 0', fontStyle: 'italic' }}>"{activeMonu.npcDialog[npcStep].npcText}"</p>
                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {/* NÚT BẤM ĐƯỢC CHUYỂN XUỐNG HÀNG DỌC */}
                                         <button onClick={() => setNpcFeedback({ text: activeMonu.npcDialog[npcStep].optAFeedback, isCorrect: activeMonu.npcDialog[npcStep].optAIsCorrect })} style={{ background: theme.bgCard, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '12px 16px', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', transition: '0.2s', fontSize: '14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
                                            <span style={{ background: '#6366f1', color: 'white', width: '28px', height: '28px', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', borderRadius: '6px', fontWeight: 'bold', flexShrink: 0 }}>A</span> 
                                            <span>{activeMonu.npcDialog[npcStep].optAText}</span>
@@ -1628,7 +2458,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                 )}
 
                 {/* GAME Ô CHỮ TRUYỀN THỐNG */}
-                {viewMode === 'game' && activeMonu.gameData && (
+                {(viewMode as string) === 'game' && activeMonu.gameData && (
                   <div style={{ width: '100%', padding: '20px', background: theme.bgMain, borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto', maxHeight: '100%', boxSizing: 'border-box' }}>
                     
                     <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
@@ -1732,10 +2562,9 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   </div>
                 )}
 
-                {/* GAME LỤC GIÁC MỚI (HEXAGONAL THINKING) */}
-                {viewMode === 'hex' && activeMonu.hexGameData && (
+                {/* GAME LỤC GIÁC (HEXAGONAL THINKING) */}
+                {(viewMode as string) === 'hex' && activeMonu.hexGameData && (
                   <div id="hex-container" style={{ width: '100%', height: '100%', position: 'relative', background: theme.bgMain, backgroundImage: `radial-gradient(${isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`, backgroundSize: '30px 30px', overflow: 'hidden' }}>
-                    
                     <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 10, display: 'flex', gap: '10px' }}>
                       <button className="back-btn" style={{ margin: 0, padding: '8px 16px', background: theme.bgPanel, border: `1px solid ${theme.border}`, color: theme.textMain }} onClick={() => setViewMode('normal')}>← Về 3D</button>
                     </div>
@@ -1762,11 +2591,10 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       </div>
                     )}
 
-                     {/* VÙNG VẼ CÁC THẺ LỤC GIÁC */}
                     {hexNodes.map(node => (
                        <div key={node.id} className="hex-card" 
                             style={{ 
-                                position: 'absolute', /* Bắt buộc phải có để thẻ kéo thả được */
+                                position: 'absolute',
                                 left: `${node.x}px`, 
                                 top: `${node.y}px`,
                                 width: '120px',
@@ -1782,10 +2610,10 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                 fontSize: '12px',
                                 fontWeight: 'bold',
                                 cursor: draggingHex === node.id ? 'grabbing' : 'grab',
-                                clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', /* Cắt thẻ thành hình lục giác */
+                                clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                                 userSelect: 'none',
-                                touchAction: 'none', /* Ngăn màn hình cuộn khi chạm trên điện thoại */
-                                zIndex: draggingHex === node.id ? 100 : 1, /* Kéo thẻ nào thẻ đó nổi lên trên cùng */
+                                touchAction: 'none',
+                                zIndex: draggingHex === node.id ? 100 : 1,
                                 transition: draggingHex === node.id ? 'none' : 'transform 0.2s',
                                 transform: draggingHex === node.id ? 'scale(1.05)' : 'scale(1)'
                             }}
@@ -1800,63 +2628,99 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   </div>
                 )}
 
-               {/* AR QR CODE CHẾ ĐỘ XEM CHUNG */}
-                {viewMode === 'ar' ? (
-                  <div style={{ textAlign: 'center', background: theme.bgMain, padding: '20px', borderRadius: '24px', border: '1px dashed #d35400', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto' }}>
+                {/* AR QR CODE CHẾ ĐỘ XEM CHUNG */}
+                {(viewMode as string) === 'ar' ? (
+                  <div style={{ textAlign: 'center', background: theme.bgMain, padding: '20px', borderRadius: '24px', border: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto' }}>
                      <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}><button className="back-btn" style={{ margin: 0, background: theme.bgPanel, color: theme.textMain, border: `1px solid ${theme.border}` }} onClick={() => setViewMode('normal')}>← Trở lại</button></div>
                      <h3 style={{ color: theme.textMain, fontFamily: 'Montserrat', margin: '0 0 20px 0', fontSize: '18px' }}>Quét mã để xem Bộ mô hình AR</h3>
-                     <div style={{ background: 'white', padding: '16px', borderRadius: '16px', display: 'inline-block' }}>
+                     <div style={{ background: 'white', padding: '16px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
                         <QRCodeSVG value={`${window.location.origin}/ar.html?d=${encodeURIComponent(JSON.stringify([...(activeMonu.normalPath ? [{ n: 'Mô hình chính', p: activeMonu.normalPath, a: activeMonu.audioUrl || '' }] : []), ...(activeMonu.subModels ? activeMonu.subModels.filter((m: any) => m.path).map((m: any) => ({ n: m.name || 'Mô hình phụ', p: m.path, a: m.audioUrl || '' })) : [])]))}`} size={160} level="M" includeMargin={true} />
                      </div>
                      <p style={{ color: theme.textSub, fontSize: '13px', marginTop: '20px', maxWidth: '300px', lineHeight: '1.6', marginInline: 'auto' }}>Quét mã QR để chiếu AR. Bạn có thể vuốt để <b>chuyển đổi qua lại</b>!</p>
                   </div>
                 ) : viewMode === 'tour' && activeMonu.tourUrl ? (
-                  <div style={{ width: '100%', height: '100%', padding: '0 24px 24px 24px', boxSizing: 'border-box' }}><iframe title="Virtual Tour" src={activeMonu.tourUrl} width="100%" height="100%" frameBorder="0" allowFullScreen allow="xr-spatial-tracking" style={{ borderRadius: '16px', background: '#111' }} /></div>
+                  <div style={{ width: '100%', height: '100%', padding: '0 20px 20px 20px', boxSizing: 'border-box' }}><iframe title="Virtual Tour" src={activeMonu.tourUrl} width="100%" height="100%" frameBorder="0" allowFullScreen allow="xr-spatial-tracking" style={{ borderRadius: '16px', background: '#111' }} /></div>
                 ) : viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && currentMainModelPath && isSketchfab(currentMainModelPath) ? (
-                  <div style={{ width: '100%', height: '100%', padding: '0 24px 24px 24px', boxSizing: 'border-box' }}><iframe title="Sketchfab Model" src={getSketchfabEmbedUrl(currentMainModelPath)} width="100%" height="100%" frameBorder="0" allowFullScreen allow="autoplay; fullscreen; xr-spatial-tracking" style={{ borderRadius: '16px', background: '#111' }} /></div>
+                  <div style={{ width: '100%', height: '100%', padding: '0 20px 20px 20px', boxSizing: 'border-box' }}><iframe title="Sketchfab Model" src={getSketchfabEmbedUrl(currentMainModelPath)} width="100%" height="100%" frameBorder="0" allowFullScreen allow="autoplay; fullscreen; xr-spatial-tracking" style={{ borderRadius: '16px', background: '#111' }} /></div>
                 ) : viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' ? (
                   <Canvas camera={{ position: [0, 1.5, 6], fov: 50 }} shadows>
                     <ambientLight intensity={1.5} /><directionalLight position={[10, 10, 10]} intensity={1.5} />
                     <Suspense fallback={<Html center={true as any}><div style={{color: theme.textMain, fontWeight:600}}>Đang tải 3D...</div></Html>}>
-                      {currentMainModelPath ? <ErrorBoundary><HistoricalModel key={activeMonu.id + viewMode + currentMainModelPath} path={currentMainModelPath} onMeshClick={setSelectedMeshName} /></ErrorBoundary> : <Html center={true as any}><div style={{color: theme.textSub, fontSize:'14px'}}>Chưa có file mô hình.</div></Html>}
+                      {currentMainModelPath ? <ErrorBoundary><HistoricalModel key={activeMonu.id + viewMode + currentMainModelPath} path={currentMainModelPath} onMeshClick={setSelectedMeshName} customScale={modelScaleMultiplier} /></ErrorBoundary> : <Html center={true as any}><div style={{color: theme.textSub, fontSize:'14px'}}>Chưa có file mô hình.</div></Html>}
                       <Environment preset="city" />
                     </Suspense>
-                    <OrbitControls ref={controlsRef} makeDefault enableDamping={true} />
+                    <OrbitControls 
+                      ref={controlsRef} 
+                      makeDefault 
+                      enableDamping={true} 
+                      autoRotate={isAutoRotating} 
+                      autoRotateSpeed={hologramSpeed}
+                      enableZoom={true}
+                      minDistance={0.5}
+                      maxDistance={35}
+                      touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+                    />
                   </Canvas>
                 ) : null}
               </div>
- {/* TRANG THÔNG TIN CHÍNH */}
+
+              {/* Bottom Gallery Dock */}
               {viewMode !== 'tour' && viewMode !== 'ar' && viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
                 <div className="cas-gallery-section">
-                  <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>ẢNH TƯ LIỆU {role === 'admin' && <button className="admin-add-btn" onClick={handleAddImage}>+ Thêm ảnh</button>}</div>
+                  <div className="section-label">
+                    <span>ẢNH TƯ LIỆU ({currentGallery.length})</span>
+                    {role === 'admin' && <button className="admin-add-btn" onClick={handleAddImage}>+ Thêm ảnh</button>}
+                  </div>
                   <div className="gallery-grid">
                     {currentGallery.map((img: any) => (
                       <div key={img.id} className={`gallery-item ${draggedImgId === img.id ? 'dragging' : ''}`} onClick={() => { setSelectedImage(img); setModalTab(img.modelPath ? '3d' : (img.videoUrl ? 'video' : 'image')); }} draggable={role === 'admin'} onDragStart={(e) => { if (role === 'admin') { setDraggedImgId(img.id); e.dataTransfer.effectAllowed = 'move'; } }} onDragOver={(e) => { if (role === 'admin') e.preventDefault(); }} onDrop={(e) => { if (role === 'admin') handleDropImage(e, img.id); }} onDragEnd={() => setDraggedImgId(null)}>
-                        <img src={img.url} alt={img.title} draggable={false} onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80' }} /><span>{img.title}</span>
-                        {img.videoUrl && <div className="badge-video">▶ VIDEO</div>}{img.modelPath && <div className="badge-3d" style={{ left: img.videoUrl ? '70px' : '8px' }}>3D</div>}{role === 'admin' && <button className="delete-img-btn" onClick={(e) => { e.stopPropagation(); handleDeleteImage(img); }}>×</button>}
+                        <img src={img.url} alt={img.title} draggable={false} onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80' }} />
+                        <span>{img.title}</span>
+                        {img.videoUrl && <div className="badge-video">▶ VIDEO</div>}
+                        {img.modelPath && <div className="badge-3d" style={{ left: img.videoUrl ? '65px' : '6px' }}>3D</div>}
+                        {role === 'admin' && <button className="delete-img-btn" onClick={(e) => { e.stopPropagation(); handleDeleteImage(img); }}>×</button>}
                       </div>
                     ))}
-                    {currentGallery.length === 0 && <p style={{ color: '#94a3b8', fontSize: '12px' }}>Chưa có hình ảnh.</p>}
+                    {currentGallery.length === 0 && <p style={{ color: '#94a3b8', fontSize: '12px' }}>Chưa có hình ảnh nào được tải lên.</p>}
                   </div>
                 </div>
               )}
             </section>
 
-           {viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
+            {/* Right Sidebar: Details & Specs */}
+            {viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
               <aside className="cas-sidebar-right" style={{ display: 'flex', flexDirection: 'column' }}>
                 {selectedMeshName && (
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-                    <button onClick={() => setSelectedMeshName('')} className="back-btn" style={{ margin: 0, flex: 1 }}>← Trở lại</button>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                    <button onClick={() => setSelectedMeshName('')} className="back-btn" style={{ margin: 0, flex: 1 }}>← Xem toàn cảnh</button>
                     {role === 'admin' && activeMonu.meshData && activeMonu.meshData[selectedMeshName] && <button onClick={() => handleDeleteMeshData(selectedMeshName)} className="btn-outline outline-dark" style={{ borderColor: '#ef4444', color: '#ef4444', padding: '0 12px' }}>🗑️ Xóa</button>}
                   </div>
                 )}
 
+                {/* Clean Part Inspector (Replaces ugly yellow box) */}
                 {role === 'admin' && selectedMeshName && (!activeMonu.meshData || !activeMonu.meshData[selectedMeshName]) && (
-                  <div className="admin-mesh-catcher"><strong>🛠️ Mã bộ phận:</strong><br/><code>{selectedMeshName}</code><p style={{ fontSize: '13px', color: '#713f12', margin: '8px 0' }}>Chưa có tài liệu.</p><button className="admin-add-btn" style={{ width: '100%', padding: '10px' }} onClick={() => handleCreateMeshData(selectedMeshName)}>+ Tạo Bài Giảng</button></div>
+                  <div className="admin-mesh-catcher">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <strong>🛠️ Bộ phận đang chọn:</strong>
+                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Chưa có bài giảng</span>
+                    </div>
+                    <code>{selectedMeshName}</code>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 10px 0' }}>Bấm nút dưới để tạo mục kiến thức riêng cho bộ phận này.</p>
+                    <button className="admin-add-btn" style={{ width: '100%', padding: '8px 12px', justifyContent: 'center' }} onClick={() => handleCreateMeshData(selectedMeshName)}>+ Tạo Bài Giảng</button>
+                  </div>
                 )}
 
                 <div className="detail-panel" style={{ display: 'flex', flexDirection: 'column', flex: expandedSpec ? 1 : 'none' }}>
-                  {!expandedSpec && <div className="section-label">{role === 'admin' && selectedMeshName && activeMonu.meshData && activeMonu.meshData[selectedMeshName] ? <input className="admin-spec-input" style={{ width: '100%', marginBottom: '6px', fontSize: '11px' }} value={currentInfo.title} onChange={e => handleUpdateMeshTitle(e.target.value)} /> : currentInfo.title}</div>}
+                  {!expandedSpec && (
+                    <div className="section-label">
+                      {role === 'admin' && selectedMeshName && activeMonu.meshData && activeMonu.meshData[selectedMeshName] ? (
+                        <input className="admin-spec-input" style={{ width: '100%', marginBottom: '4px', fontSize: '11px' }} value={currentInfo.title} onChange={e => handleUpdateMeshTitle(e.target.value)} />
+                      ) : (
+                        <span>{currentInfo.title}</span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="specs-grid" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     {currentInfo.specs.map((spec: any) => {
                       if (expandedSpec && expandedSpec !== spec.id) return null;
@@ -1875,29 +2739,278 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                             </div>
                             <div className="spec-header-text">
                               {role === 'admin' && !isExpanded ? (
-                                <><input className="admin-spec-input" style={{ fontSize: '11px', marginBottom: '2px', width: '80%' }} value={spec.title} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'title', e.target.value)} /><input className="admin-spec-input" style={{ width: '80%' }} value={spec.summary} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'summary', e.target.value)} /></>
-                              ) : (<><span className="spec-title">{spec.title}</span><span className="spec-summary">{spec.summary}</span></>)}
+                                <>
+                                  <input className="admin-spec-input" style={{ fontSize: '10.5px', marginBottom: '2px', width: '90%' }} value={spec.title} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'title', e.target.value)} />
+                                  <input className="admin-spec-input" style={{ width: '90%' }} value={spec.summary} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'summary', e.target.value)} />
+                                </>
+                              ) : (
+                                <>
+                                  <span className="spec-title">{spec.title}</span>
+                                  <span className="spec-summary">{spec.summary}</span>
+                                </>
+                              )}
                             </div>
                             <div className="expand-icon">{isExpanded ? '✕' : '+'}</div>
                           </div>
-                          {isExpanded && <div className="spec-full-text">{spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} /> : <p key={index} className="spec-paragraph">{paragraph}</p>)}</div>}
+                          {isExpanded && (
+                            <div className="spec-full-text">
+                              {spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? (
+                                <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} />
+                              ) : (
+                                <p key={index} className="spec-paragraph">{paragraph}</p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
-                    {role === 'admin' && !expandedSpec && <button className="admin-add-btn" style={{ marginTop: '5px', padding: '10px' }} onClick={handleAddSpecCard}>+ Thêm Thẻ</button>}
+                    {role === 'admin' && !expandedSpec && <button className="admin-add-btn" style={{ marginTop: '4px', padding: '8px 12px', justifyContent: 'center' }} onClick={handleAddSpecCard}>+ Thêm Thẻ Thông Số</button>}
                   </div>
                 </div>
 
                 {!expandedSpec && (
-                  <div className="notes-panel" style={{ marginTop: '24px' }}>
+                  <div className="notes-panel" style={{ marginTop: '20px' }}>
                     <div className="section-label">GHI CHÚ MỞ RỘNG</div>
-                    {role === 'admin' && (selectedMeshName === '' || (activeMonu.meshData && activeMonu.meshData[selectedMeshName])) ? <textarea className="admin-textarea" value={currentInfo.historyNotes} onChange={(e) => handleUpdateNotes(e.target.value)} /> : <p className="spec-paragraph">{currentInfo.historyNotes}</p>}
+                    {role === 'admin' && (selectedMeshName === '' || (activeMonu.meshData && activeMonu.meshData[selectedMeshName])) ? (
+                      <textarea className="admin-textarea" value={currentInfo.historyNotes} onChange={(e) => handleUpdateNotes(e.target.value)} placeholder="Nhập ghi chú hoặc tư liệu lịch sử mở rộng..." />
+                    ) : (
+                      <p className="spec-paragraph" style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6' }}>{currentInfo.historyNotes || 'Chưa có ghi chú bổ sung.'}</p>
+                    )}
                   </div>
                 )}
               </aside>
             )}
           </main>
-          
+
+          {/* 🔮 MÀN HÌNH CHIẾU HOLOGRAM NGOẠI VI (HOLOGRAM PROJECTION & TURNTABLE FULLSCREEN) */}
+          {isHologramMode && (
+            <div 
+              className={`fixed inset-0 z-[999999] flex flex-col justify-between select-none transition-colors duration-500 ${
+                !isHologramUIVisible ? 'cursor-none' : 'cursor-default'
+              } ${
+                hologramBg === 'pure-black' 
+                  ? 'bg-black' 
+                  : hologramBg === 'grid' 
+                    ? 'bg-[#030712]' 
+                    : 'bg-zinc-950'
+              }`}
+              onMouseMove={resetHologramIdleTimer}
+              onTouchStart={resetHologramIdleTimer}
+              onClick={resetHologramIdleTimer}
+            >
+              {/* Nút thoát khẩn cấp luôn luôn nổi ở góc phải để không bao giờ bị che khuất */}
+              <button 
+                type="button"
+                onClick={handleExitHologram}
+                className="fixed top-4 right-4 z-[1000000] px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white/70 hover:text-white border border-white/20 text-xs font-semibold backdrop-blur-md transition-all cursor-pointer shadow-lg"
+                title="Thoát chế độ Hologram (Phím tắt: Esc)"
+              >
+                ✕ Thoát [Esc]
+              </button>
+              {/* 3D Hologram Canvas */}
+              <div className="absolute inset-0 z-0">
+                <Canvas camera={{ position: [0, 1.2, 5], fov: 45 }}>
+                  <ambientLight intensity={hologramBg === 'pure-black' ? 2.0 : 1.4} />
+                  <directionalLight position={[10, 15, 10]} intensity={2.2} />
+                  <directionalLight position={[-10, 10, -10]} intensity={1.2} />
+                  <Suspense fallback={<Html center><div className="text-white text-xs font-mono tracking-widest animate-pulse">CHUẨN BỊ CHIẾU HOLOGRAM...</div></Html>}>
+                    {currentMainModelPath ? (
+                      <HistoricalModel path={currentMainModelPath} onMeshClick={() => {}} customScale={modelScaleMultiplier} />
+                    ) : (
+                      <Html center><div className="text-zinc-500">Chưa có file 3D để chiếu</div></Html>
+                    )}
+                    {hologramBg !== 'pure-black' && <Environment preset="city" />}
+                  </Suspense>
+                  <OrbitControls 
+                    enableDamping={true} 
+                    dampingFactor={0.05}
+                    autoRotate={isAutoRotating} 
+                    autoRotateSpeed={hologramSpeed}
+                    enablePan={false}
+                    enableZoom={true}
+                    minDistance={0.5}
+                    maxDistance={35}
+                    touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+                  />
+                </Canvas>
+
+                {/* Optional Cyber Grid Floor */}
+                {hologramBg === 'grid' && (
+                  <div className="absolute inset-0 pointer-events-none opacity-30 bg-[linear-gradient(to_right,#06b6d420_1px,transparent_1px),linear-gradient(to_bottom,#06b6d420_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+                )}
+              </div>
+
+              {/* Top HUD Bar */}
+              <div className={`relative z-10 p-5 sm:p-6 flex items-center justify-between transition-opacity duration-700 ${
+                isHologramUIVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.25)]">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span>HOLOGRAM PROJECTION 360°</span>
+                  </div>
+                  <div className="hidden sm:flex flex-col">
+                    <span className="text-white text-sm font-bold tracking-tight">{activeMonu.name}</span>
+                    <span className="text-zinc-400 text-[11px] font-mono">{activeMonu.category}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    type="button"
+                    className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all cursor-pointer backdrop-blur-md shadow-lg"
+                    onClick={handleExitHologram}
+                  >
+                    ✕ Thoát [Esc]
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom HUD Bar */}
+              <div 
+                className={`relative z-10 p-4 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-3 transition-opacity duration-700 ${
+                  isHologramUIVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+              >
+                {/* Left: Rotation speed & pause controls */}
+                <div 
+                  className="flex items-center gap-2 bg-black/75 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full shadow-2xl"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <button 
+                    type="button" 
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                      isAutoRotating ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/5 text-zinc-300 hover:text-white'
+                    }`}
+                    onClick={(e) => { e.stopPropagation(); setIsAutoRotating(!isAutoRotating); }}
+                  >
+                    {isAutoRotating ? '⏸ Tạm dừng' : '▶ Tự xoay'}
+                  </button>
+
+                  <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+                  <span className="text-[11px] text-zinc-400 font-mono">TỐC ĐỘ:</span>
+                  {[0.5, 1, 2, 4].map((spd) => (
+                    <button
+                      key={spd}
+                      type="button"
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-all cursor-pointer ${
+                        hologramSpeed === spd ? 'bg-cyan-500 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'
+                      }`}
+                      onClick={(e) => { e.stopPropagation(); setHologramSpeed(spd); setIsAutoRotating(true); }}
+                    >
+                      {spd}x
+                    </button>
+                  ))}
+                </div>
+
+                {/* Center: Glitch-Free Scale / Zoom Slider for Hologram */}
+                <div 
+                  className="flex items-center gap-2 bg-black/80 backdrop-blur-xl border border-cyan-500/40 px-4 py-2 rounded-full shadow-2xl"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <span className="text-[11px] text-cyan-400 font-mono font-semibold">THU PHÓNG:</span>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModelScaleMultiplier(prev => Math.max(0.3, Number((prev - 0.1).toFixed(2))));
+                      resetHologramIdleTimer();
+                    }}
+                    className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+                    title="Thu nhỏ mô hình"
+                  >
+                    −
+                  </button>
+                  <input 
+                    type="range" 
+                    min="0.3" 
+                    max="2.5" 
+                    step="0.05" 
+                    value={modelScaleMultiplier} 
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setModelScaleMultiplier(parseFloat(e.target.value));
+                      resetHologramIdleTimer();
+                    }}
+                    className="w-24 sm:w-32 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                    title={`Thu phóng: ${Math.round(modelScaleMultiplier * 100)}%`}
+                  />
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModelScaleMultiplier(prev => Math.min(2.5, Number((prev + 0.1).toFixed(2))));
+                      resetHologramIdleTimer();
+                    }}
+                    className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+                    title="Phóng to mô hình"
+                  >
+                    +
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModelScaleMultiplier(1);
+                      resetHologramIdleTimer();
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
+                    title="Đặt lại kích thước gốc 100%"
+                  >
+                    {Math.round(modelScaleMultiplier * 100)}%
+                  </button>
+                </div>
+
+                {/* Right: Background mode selector */}
+                <div className="flex items-center gap-2 bg-black/70 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full shadow-2xl">
+                  <span className="text-[11px] text-zinc-400 font-mono">NỀN:</span>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer ${
+                      hologramBg === 'pure-black' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                    onClick={() => setHologramBg('pure-black')}
+                    title="Nền đen tuyệt đối tối ưu cho thiết bị chiếu Hologram ngoại vi"
+                  >
+                    Đen 100% (Hologram)
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer ${
+                      hologramBg === 'grid' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                    onClick={() => setHologramBg('grid')}
+                  >
+                    Lưới Cyber
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer ${
+                      hologramBg === 'studio' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
+                    }`}
+                    onClick={() => setHologramBg('studio')}
+                  >
+                    Studio
+                  </button>
+                </div>
+
+                <div className="text-zinc-400 text-[11px] font-mono hidden lg:block bg-black/50 px-3 py-1.5 rounded-full border border-white/5 backdrop-blur-md">
+                  Tự động ẩn thanh công cụ sau 3s • Nhấn Phím cách (Space) để dừng/xoay
+                </div>
+              </div>
+            </div>
+          )}
+        
 
           {/* ... (Các Modal Preview Ảnh & Hộ chiếu giữ nguyên bên dưới) ... */}
           {selectedImage && (
@@ -2009,6 +3122,76 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
             );
           })()}
 
+        
+        </div>
+      )}
+
+      {showRlsHelpModal && (
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-zinc-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-[0_0_50px_rgba(245,158,11,0.2)] text-left relative">
+            <button 
+              type="button"
+              onClick={() => setShowRlsHelpModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <span className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-300 text-xl">🛡️</span>
+              <div>
+                <h3 className="text-white text-base font-bold">Cần mở quyền ghi Supabase (RLS Fix)</h3>
+                <p className="text-xs text-amber-300/80 font-mono">Mã lỗi 42501: Row Level Security</p>
+              </div>
+            </div>
+
+            <p className="text-zinc-300 text-xs sm:text-sm leading-relaxed mb-4">
+              Máy chủ Supabase đã kết nối thành công! Tuy nhiên, bảng <code className="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">heritage_lessons</code> đang bật bảo mật cấp dòng (RLS) nhưng chưa cấp quyền ghi cho khóa Anon công khai.
+            </p>
+
+            <div className="bg-black/60 rounded-2xl p-4 border border-white/10 mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-mono text-zinc-400">CHẠY LỆNH NÀY TẠI SUPABASE SQL EDITOR:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText('ALTER TABLE heritage_lessons DISABLE ROW LEVEL SECURITY;');
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-semibold border border-amber-500/30 transition-all cursor-pointer"
+                >
+                  {copiedSql ? '✅ Đã sao chép!' : '📋 Sao chép lệnh'}
+                </button>
+              </div>
+              <pre className="text-cyan-300 font-mono text-xs overflow-x-auto select-all">ALTER TABLE heritage_lessons DISABLE ROW LEVEL SECURITY;</pre>
+            </div>
+
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-5 text-[11px] text-emerald-300">
+              🔒 <b>Yên tâm:</b> Toàn bộ bài học của bạn hiện <b>đã được lưu an toàn</b> vào bộ nhớ máy này (Local Storage), dữ liệu không bao giờ bị mất!
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5">
+              <a 
+                href="https://supabase.com/dashboard/project/panphxziqtkvtjffwhlc/editor" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold text-center border border-white/10 transition-all"
+              >
+                🔗 Mở Supabase SQL Editor ↗
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRlsHelpModal(false);
+                  handleSaveToCloud();
+                }}
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold text-center transition-all shadow-md cursor-pointer"
+              >
+                ⚡ Thử lưu Cloud lại
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
