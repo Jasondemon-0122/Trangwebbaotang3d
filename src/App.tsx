@@ -1,7 +1,7 @@
 import { Suspense, useState, useRef, useEffect, useMemo, useCallback, Component } from 'react';
 import type { ReactNode, FormEvent, DragEvent } from 'react';
 import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Html, Center } from '@react-three/drei';
 import { createClient } from '@supabase/supabase-js'; 
 import { QRCodeSVG } from 'qrcode.react'; 
@@ -45,13 +45,22 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}
 
 function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string, onMeshClick: (name: string) => void, customScale?: number }) {
   const { scene } = useGLTF(path);
-  // Chuẩn hóa kích thước hình học 1 lần duy nhất để không bị tính lại bounding box khi kéo slider
+  const { viewport } = useThree();
+
+  // Chuẩn hóa kích thước hình học tự động thích ứng với viewport (điện thoại dọc vs máy tính)
+  // Đảm bảo mô hình luôn hiển thị trọn vẹn, không bao giờ bị quá khổ (oversized) trên màn hình hẹp của smartphone
   const baseScale = useMemo(() => {
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    return maxDim > 0 ? 3.8 / maxDim : 1;
-  }, [scene]);
+    if (maxDim <= 0) return 1;
+    // Trên điện thoại (portrait), viewport.width là cạnh nhỏ nhất (~1.8 - 2.2 units)
+    // Hệ số 0.65 đảm bảo mô hình luôn nằm trọn trong 65% khung nhìn, để lại lề an toàn
+    // Trên máy tính/màn hình ngang, min(viewport.width, viewport.height) là height (~4.0 - 4.5 units)
+    const minDim = Math.min(viewport.width, viewport.height);
+    const targetSize = Math.min(Math.max(minDim * 0.65, 1.2), 3.2);
+    return targetSize / maxDim;
+  }, [scene, viewport.width, viewport.height]);
 
   return (
     <group scale={customScale}>
@@ -1550,26 +1559,35 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
       )}
 
       {page === 'student-auth' && (
-        <div className="landing-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' }}>
-          <div style={{ background: '#0f172a', padding: '40px', borderRadius: '24px', border: '1px solid #334155', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'fadeIn 0.4s' }}>
-            <h2 style={{ color: '#fff', textAlign: 'center', margin: '0 0 24px 0', fontFamily: 'Montserrat, sans-serif' }}>🏛️ CỔNG HỌC SINH</h2>
-            <div style={{ display: 'flex', marginBottom: '20px', background: '#1e293b', borderRadius: '12px', padding: '4px' }}>
-              <button onClick={() => setAuthMode('login')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: authMode === 'login' ? '#3b82f6' : 'transparent', color: authMode === 'login' ? '#fff' : '#94a3b8', fontWeight: 'bold', cursor: 'pointer' }}>Đăng nhập</button>
-              <button onClick={() => setAuthMode('register')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: authMode === 'register' ? '#10b981' : 'transparent', color: authMode === 'register' ? '#fff' : '#94a3b8', fontWeight: 'bold', cursor: 'pointer' }}>Đăng ký mới</button>
+        <div className="landing-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              style={{ width: '40px', height: '40px', borderRadius: '50%', border: isDarkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1', background: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '18px', boxShadow: isDarkMode ? 'none' : '0 4px 12px rgba(0,0,0,0.06)' }}
+              title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
+          <div style={{ background: isDarkMode ? '#0f172a' : '#ffffff', padding: '40px', borderRadius: '24px', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', width: '100%', maxWidth: '400px', boxShadow: isDarkMode ? '0 25px 50px -12px rgba(0,0,0,0.5)' : '0 20px 40px rgba(0,0,0,0.08)', animation: 'fadeIn 0.4s' }}>
+            <h2 style={{ color: isDarkMode ? '#fff' : '#0f172a', textAlign: 'center', margin: '0 0 24px 0', fontFamily: 'Montserrat, sans-serif' }}>🏛️ CỔNG HỌC SINH</h2>
+            <div style={{ display: 'flex', marginBottom: '20px', background: isDarkMode ? '#1e293b' : '#f1f5f9', borderRadius: '12px', padding: '4px' }}>
+              <button onClick={() => setAuthMode('login')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: authMode === 'login' ? '#3b82f6' : 'transparent', color: authMode === 'login' ? '#fff' : (isDarkMode ? '#94a3b8' : '#64748b'), fontWeight: 'bold', cursor: 'pointer' }}>Đăng nhập</button>
+              <button onClick={() => setAuthMode('register')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: authMode === 'register' ? '#10b981' : 'transparent', color: authMode === 'register' ? '#fff' : (isDarkMode ? '#94a3b8' : '#64748b'), fontWeight: 'bold', cursor: 'pointer' }}>Đăng ký mới</button>
             </div>
             <form onSubmit={handleStudentAuth} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input type="email" placeholder="Email đăng nhập..." required value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: '#1e293b', border: '1px solid #475569', color: '#fff', outline: 'none' }} />
-              <input type="password" placeholder="Mật khẩu (Tối thiểu 6 ký tự)..." required minLength={6} value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: '#1e293b', border: '1px solid #475569', color: '#fff', outline: 'none' }} />
+              <input type="email" placeholder="Email đăng nhập..." required value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: isDarkMode ? '#1e293b' : '#f8fafc', border: isDarkMode ? '1px solid #475569' : '1px solid #cbd5e1', color: isDarkMode ? '#fff' : '#0f172a', outline: 'none' }} />
+              <input type="password" placeholder="Mật khẩu (Tối thiểu 6 ký tự)..." required minLength={6} value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: isDarkMode ? '#1e293b' : '#f8fafc', border: isDarkMode ? '1px solid #475569' : '1px solid #cbd5e1', color: isDarkMode ? '#fff' : '#0f172a', outline: 'none' }} />
               
               {authMode === 'register' && (
                 <>
-                  <input type="text" placeholder="Họ và Tên đầy đủ..." required value={regName} onChange={e => setRegName(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: '#1e293b', border: '1px solid #475569', color: '#fff', outline: 'none' }} />
-                  <input type="text" placeholder="Lớp học (VD: 10A1)..." required value={regClass} onChange={e => setRegClass(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: '#1e293b', border: '1px solid #475569', color: '#fff', outline: 'none' }} />
+                  <input type="text" placeholder="Họ và Tên đầy đủ..." required value={regName} onChange={e => setRegName(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: isDarkMode ? '#1e293b' : '#f8fafc', border: isDarkMode ? '1px solid #475569' : '1px solid #cbd5e1', color: isDarkMode ? '#fff' : '#0f172a', outline: 'none' }} />
+                  <input type="text" placeholder="Lớp học (VD: 10A1)..." required value={regClass} onChange={e => setRegClass(e.target.value)} style={{ padding: '14px', borderRadius: '10px', background: isDarkMode ? '#1e293b' : '#f8fafc', border: isDarkMode ? '1px solid #475569' : '1px solid #cbd5e1', color: isDarkMode ? '#fff' : '#0f172a', outline: 'none' }} />
                   <div>
-                    <label style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', display: 'block' }}>Chọn Avatar yêu thích:</label>
+                    <label style={{ fontSize: '12px', color: isDarkMode ? '#94a3b8' : '#64748b', marginBottom: '8px', display: 'block' }}>Chọn Avatar yêu thích:</label>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {AVATAR_LIST.map(avt => (
-                        <div key={avt} onClick={() => setRegAvatar(avt)} style={{ width: '40px', height: '40px', background: regAvatar === avt ? '#cbd5e1' : '#1e293b', border: regAvatar === avt ? '2px solid #3b82f6' : '1px solid #475569', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', cursor: 'pointer', boxSizing: 'border-box' }}>{avt}</div>
+                        <div key={avt} onClick={() => setRegAvatar(avt)} style={{ width: '40px', height: '40px', background: regAvatar === avt ? '#cbd5e1' : (isDarkMode ? '#1e293b' : '#f1f5f9'), border: regAvatar === avt ? '2px solid #3b82f6' : (isDarkMode ? '1px solid #475569' : '1px solid #cbd5e1'), borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', cursor: 'pointer', boxSizing: 'border-box' }}>{avt}</div>
                       ))}
                     </div>
                   </div>
@@ -1577,7 +1595,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
               )}
               <button type="submit" style={{ marginTop: '10px', padding: '14px', borderRadius: '10px', border: 'none', background: authMode === 'login' ? '#3b82f6' : '#10b981', color: '#fff', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>{authMode === 'login' ? 'VÀO HỌC NGAY' : 'TẠO TÀI KHOẢN'}</button>
             </form>
-            <button onClick={() => setPage('landing')} style={{ width: '100%', marginTop: '16px', background: 'transparent', border: 'none', color: '#94a3b8', textDecoration: 'underline', cursor: 'pointer' }}>← Trở lại trang chủ</button>
+            <button onClick={() => setPage('landing')} style={{ width: '100%', marginTop: '16px', background: 'transparent', border: 'none', color: isDarkMode ? '#94a3b8' : '#64748b', textDecoration: 'underline', cursor: 'pointer' }}>← Trở lại trang chủ</button>
           </div>
         </div>
       )}
@@ -1604,11 +1622,20 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
              <small>{activeRegion === 'world' ? 'PHẦN 1' : 'PHẦN 2'}</small>
              <div className="lesson-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <h1>{themeTitle}</h1>
-                {currentUser && (
-                  <button onClick={() => { fetchMyPassport(); setShowPassportModal(true); }} style={{ background: 'linear-gradient(135deg, #1e3a8a, #1e40af)', color: '#fcd34d', border: '2px solid #fbbf24', padding: '10px 20px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center', boxShadow: '0 4px 15px rgba(251, 191, 36, 0.3)', transition: '0.3s' }}>
-                    {currentUser.user_metadata?.avatar || '🛂'} Hộ chiếu Di sản của {currentUser.user_metadata?.full_name?.split(' ').pop() || 'Tôi'}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  {currentUser && (
+                    <button onClick={() => { fetchMyPassport(); setShowPassportModal(true); }} style={{ background: 'linear-gradient(135deg, #1e3a8a, #1e40af)', color: '#fcd34d', border: '2px solid #fbbf24', padding: '10px 20px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center', boxShadow: '0 4px 15px rgba(251, 191, 36, 0.3)', transition: '0.3s' }}>
+                      {currentUser.user_metadata?.avatar || '🛂'} Hộ chiếu Di sản của {currentUser.user_metadata?.full_name?.split(' ').pop() || 'Tôi'}
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setIsDarkMode(!isDarkMode)} 
+                    style={{ width: '38px', height: '38px', borderRadius: '50%', border: isDarkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1', background: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '18px', boxShadow: isDarkMode ? 'none' : '0 4px 12px rgba(0,0,0,0.06)' }}
+                    title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+                  >
+                    {isDarkMode ? '☀️' : '🌙'}
                   </button>
-                )}
+                </div>
              </div>
              <p>Lựa chọn một bài học bên dưới để khám phá.</p>
            </div>
@@ -1643,6 +1670,13 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
            <header className="dashboard-header">
               <div className="logo">⚙️ TRUNG TÂM ĐIỀU KHIỂN CLOUD (CMS)</div>
               <div className="dashboard-actions">
+                  <button 
+                    className="btn-outline outline-dark" 
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+                  >
+                    {isDarkMode ? '☀️ Sáng' : '🌙 Tối'}
+                  </button>
                  <button className="btn-outline outline-dark" style={{ border: '1px solid #38bdf8', color: '#38bdf8' }} onClick={handleResetToInitialData} title="Khôi phục đầy đủ bài học gốc có 3D, mặt cắt, VR tour">↺ Nạp bài học gốc</button>
                  <button className="btn-export" style={{ background: '#0284c7' }} onClick={handleSaveToCloud}>☁️ Lưu lên Đám mây</button>
                  <button className="btn-outline outline-dark" onClick={() => handleNavigateToPage('landing')}>Đăng xuất</button>
@@ -2198,21 +2232,10 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
 
               <div className="canvas-wrapper" style={((viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '420px', position: 'relative', overflow: 'hidden' } : { position: 'relative', flex: 1 }}>
 
-                {/* Unified Studio Floating Toolbar (Chiếu Hologram & Tự xoay 360°) */}
+                {/* Floating Turntable Controls (Bố trí ở góc dưới phải để không che khuất các tab chế độ ở trên) */}
                 {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && !isSketchfab(currentMainModelPath) && (
-                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+                  <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
                     <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-zinc-900/85 hover:bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl transition-all">
-                      {/* Chiếu Hologram Button */}
-                      <button 
-                        type="button" 
-                        onClick={handleEnterHologram} 
-                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                        title="Toàn màn hình & Tự xoay 360° cho thiết bị Hologram ngoại vi (Phím tắt: H)"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                        <span>Chiếu Hologram</span>
-                      </button>
-
                       {/* Auto Rotate Button */}
                       <button 
                         type="button" 
@@ -2224,7 +2247,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                         }`}
                         title="Bật/Tắt tự động xoay mô hình (Phím cách Space)"
                       >
-                        <span>{isAutoRotating ? '⏸ Dừng' : '🔄 Tự xoay'}</span>
+                        <span>{isAutoRotating ? '⏸ Dừng xoay' : '🔄 Tự xoay 360°'}</span>
                       </button>
                     </div>
                   </div>
@@ -2798,15 +2821,6 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
               onTouchStart={resetHologramIdleTimer}
               onClick={resetHologramIdleTimer}
             >
-              {/* Nút thoát khẩn cấp luôn luôn nổi ở góc phải để không bao giờ bị che khuất */}
-              <button 
-                type="button"
-                onClick={handleExitHologram}
-                className="fixed top-4 right-4 z-[1000000] px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white/70 hover:text-white border border-white/20 text-xs font-semibold backdrop-blur-md transition-all cursor-pointer shadow-lg"
-                title="Thoát chế độ Hologram (Phím tắt: Esc)"
-              >
-                ✕ Thoát [Esc]
-              </button>
               {/* 3D Hologram Canvas */}
               <div className="absolute inset-0 z-0">
                 <Canvas camera={{ position: [0, 1.2, 5], fov: 45 }}>
