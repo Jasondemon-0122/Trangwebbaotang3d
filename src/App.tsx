@@ -46,29 +46,18 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}
 function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string, onMeshClick: (name: string) => void, customScale?: number }) {
   const { scene } = useGLTF(path);
 
-  // Chuẩn hóa kích thước hình học mô hình 1 lần duy nhất theo dữ liệu scene của file 3D
-  // Cố định tâm tại gốc tọa độ (0, 0, 0), triệt tiêu hoàn toàn hiện tượng glitch/nhảy vị trí
-  // khi đổi theme sáng tối, bật/tắt tự xoay hay thu phóng
-  const { baseScale, centerOffset } = useMemo(() => {
+  // Chuẩn hóa kích thước hình học mô hình 1 lần duy nhất theo dữ liệu scene gốc
+  // Tỷ lệ chuẩn 2.8 units kết hợp cùng component <Center> căn giữa tâm hình học hoàn hảo
+  const baseScale = useMemo(() => {
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    
-    // Tỷ lệ chuẩn vàng 1.8 units: Vừa vặn toàn cảnh hoàn hảo trên cả điện thoại (màn hình hẹp)
-    // lẫn máy tính để bàn (màn hình rộng), để lại khoảng viền an toàn và thoáng đãng
-    const scale = maxDim > 0 ? 1.8 / maxDim : 1;
-    const offset: [number, number, number] = [
-      -center.x * scale,
-      -center.y * scale,
-      -center.z * scale
-    ];
-    return { baseScale: scale, centerOffset: offset };
+    return maxDim > 0 ? 2.8 / maxDim : 1;
   }, [scene]);
 
   return (
     <group scale={customScale}>
-      <group scale={baseScale} position={centerOffset}>
+      <Center scale={baseScale}>
         <primitive 
           object={scene} 
           dispose={null} 
@@ -78,7 +67,7 @@ function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string,
           }} 
           onPointerMissed={() => onMeshClick('')} 
         />
-      </group>
+      </Center>
     </group>
   );
 }
@@ -405,6 +394,7 @@ export default function App() {
   // QUẢN LÝ TAB TRONG CMS GIÁO VIÊN
   const [activeAdminTab, setActiveAdminTab] = useState('general');
   const controlsRef = useRef<any>(null);
+  const holoControlsRef = useRef<any>(null);
 
 // 1. Hàm tra cứu Role từ bảng user_roles theo Email (đặt độc lập ở ngoài)
   const determineUserRole = async (email: string | undefined) => {
@@ -2241,6 +2231,19 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       >
                         <span>{isAutoRotating ? '⏸ Dừng xoay' : '🔄 Tự xoay 360°'}</span>
                       </button>
+
+                      {/* Recenter & Reset Camera Button */}
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          controlsRef.current?.reset();
+                          setModelScaleMultiplier(1);
+                        }} 
+                        className="px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10 hover:text-white"
+                        title="Căn giữa lại mô hình và đặt lại góc nhìn chuẩn"
+                      >
+                        <span>🎯 Căn giữa</span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -2672,9 +2675,11 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       autoRotate={isAutoRotating} 
                       autoRotateSpeed={hologramSpeed}
                       enableZoom={true}
-                      minDistance={0.5}
-                      maxDistance={60}
-                      target={[0, 0, 0]}
+                      enablePan={true}
+                      screenSpacePanning={true}
+                      panSpeed={1.0}
+                      minDistance={0.05}
+                      maxDistance={250}
                       touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
                     />
                   </Canvas>
@@ -2709,7 +2714,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
               <aside className="cas-sidebar-right" style={{ display: 'flex', flexDirection: 'column' }}>
                 {selectedMeshName && (
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-                    <button onClick={() => setSelectedMeshName('')} className="back-btn" style={{ margin: 0, flex: 1 }}>← Xem toàn cảnh</button>
+                    <button onClick={() => { setSelectedMeshName(''); controlsRef.current?.reset(); setModelScaleMultiplier(1); }} className="back-btn" style={{ margin: 0, flex: 1 }} title="Căn giữa lại toàn cảnh mô hình">← Xem toàn cảnh</button>
                     {role === 'admin' && activeMonu.meshData && activeMonu.meshData[selectedMeshName] && <button onClick={() => handleDeleteMeshData(selectedMeshName)} className="btn-outline outline-dark" style={{ borderColor: '#ef4444', color: '#ef4444', padding: '0 12px' }}>🗑️ Xóa</button>}
                   </div>
                 )}
@@ -2830,16 +2835,18 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     {hologramBg !== 'pure-black' && <Environment preset="city" />}
                   </Suspense>
                   <OrbitControls 
+                    ref={holoControlsRef}
                     makeDefault
                     enableDamping={true} 
                     dampingFactor={0.05}
                     autoRotate={isAutoRotating} 
                     autoRotateSpeed={hologramSpeed}
-                    enablePan={false}
+                    enablePan={true}
+                    screenSpacePanning={true}
+                    panSpeed={1.0}
                     enableZoom={true}
-                    minDistance={0.3}
-                    maxDistance={80}
-                    target={[0, 0, 0]}
+                    minDistance={0.05}
+                    maxDistance={250}
                     touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
                   />
                 </Canvas>
@@ -2930,7 +2937,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setModelScaleMultiplier(prev => Math.max(0.1, Number((prev - 0.1).toFixed(2))));
+                      setModelScaleMultiplier(prev => Math.max(0.05, Number((prev - 0.1).toFixed(2))));
                       resetHologramIdleTimer();
                     }}
                     className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
@@ -2940,8 +2947,8 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   </button>
                   <input 
                     type="range" 
-                    min="0.1" 
-                    max="3.0" 
+                    min="0.05" 
+                    max="4.0" 
                     step="0.05" 
                     value={modelScaleMultiplier} 
                     onPointerDown={(e) => e.stopPropagation()}
@@ -2959,7 +2966,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setModelScaleMultiplier(prev => Math.min(3.0, Number((prev + 0.1).toFixed(2))));
+                      setModelScaleMultiplier(prev => Math.min(4.0, Number((prev + 0.1).toFixed(2))));
                       resetHologramIdleTimer();
                     }}
                     className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
@@ -2972,12 +2979,26 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     onClick={(e) => {
                       e.stopPropagation();
                       setModelScaleMultiplier(1);
+                      holoControlsRef.current?.reset();
                       resetHologramIdleTimer();
                     }}
                     className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
-                    title="Đặt lại kích thước gốc 100%"
+                    title="Đặt lại kích thước gốc 100% và căn giữa"
                   >
                     {Math.round(modelScaleMultiplier * 100)}%
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      holoControlsRef.current?.reset();
+                      setModelScaleMultiplier(1);
+                      resetHologramIdleTimer();
+                    }}
+                    className="px-2.5 py-0.5 text-[10px] font-mono font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                    title="Căn giữa lại mô hình về tâm màn hình"
+                  >
+                    <span>🎯 Căn giữa</span>
                   </button>
                 </div>
 
