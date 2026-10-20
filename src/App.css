@@ -640,14 +640,20 @@ body.light-mode .cas-gallery-section {
   max-height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
-  background-color: #030712;
-  color: #f8fafc;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   position: relative;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+}
+body.dark-mode .landing-wrapper {
+  background-color: #030712 !important;
+  color: #f8fafc !important;
+}
+body.light-mode .landing-wrapper {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
 }
 .landing-wrapper::-webkit-scrollbar {
   width: 7px;
@@ -1663,4 +1669,24 @@ body.light-mode #hologram-viewport h1,
 body.light-mode #hologram-viewport h2,
 body.light-mode #hologram-viewport h3 {
   color: #ffffff !important;
+}
+
+/* Đảm bảo Landing Page trong Light Mode đồng bộ màu nền và chữ */
+body.light-mode .landing-wrapper {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+body.light-mode .landing-wrapper h1,
+body.light-mode .landing-wrapper h2,
+body.light-mode .landing-wrapper h3 {
+  color: #09090b !important;
+}
+body.light-mode .landing-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+body.light-mode .landing-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
+body.light-mode .landing-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
 }

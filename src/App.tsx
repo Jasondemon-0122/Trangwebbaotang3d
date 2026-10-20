@@ -1,7 +1,7 @@
 import { Suspense, useState, useRef, useEffect, useMemo, useCallback, Component } from 'react';
 import type { ReactNode, FormEvent, DragEvent } from 'react';
 import * as THREE from 'three';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Html, Center } from '@react-three/drei';
 import { createClient } from '@supabase/supabase-js'; 
 import { QRCodeSVG } from 'qrcode.react'; 
@@ -45,26 +45,30 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}
 
 function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string, onMeshClick: (name: string) => void, customScale?: number }) {
   const { scene } = useGLTF(path);
-  const { viewport } = useThree();
 
-  // Chuẩn hóa kích thước hình học tự động thích ứng với viewport (điện thoại dọc vs máy tính)
-  // Đảm bảo mô hình luôn hiển thị trọn vẹn, không bao giờ bị quá khổ (oversized) trên màn hình hẹp của smartphone
-  const baseScale = useMemo(() => {
+  // Chuẩn hóa kích thước hình học mô hình 1 lần duy nhất theo dữ liệu scene của file 3D
+  // Cố định tâm tại gốc tọa độ (0, 0, 0), triệt tiêu hoàn toàn hiện tượng glitch/nhảy vị trí
+  // khi đổi theme sáng tối, bật/tắt tự xoay hay thu phóng
+  const { baseScale, centerOffset } = useMemo(() => {
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim <= 0) return 1;
-    // Trên điện thoại (portrait), viewport.width là cạnh nhỏ nhất (~1.8 - 2.2 units)
-    // Hệ số 0.65 đảm bảo mô hình luôn nằm trọn trong 65% khung nhìn, để lại lề an toàn
-    // Trên máy tính/màn hình ngang, min(viewport.width, viewport.height) là height (~4.0 - 4.5 units)
-    const minDim = Math.min(viewport.width, viewport.height);
-    const targetSize = Math.min(Math.max(minDim * 0.65, 1.2), 3.2);
-    return targetSize / maxDim;
-  }, [scene, viewport.width, viewport.height]);
+    
+    // Tỷ lệ chuẩn vàng 1.8 units: Vừa vặn toàn cảnh hoàn hảo trên cả điện thoại (màn hình hẹp)
+    // lẫn máy tính để bàn (màn hình rộng), để lại khoảng viền an toàn và thoáng đãng
+    const scale = maxDim > 0 ? 1.8 / maxDim : 1;
+    const offset: [number, number, number] = [
+      -center.x * scale,
+      -center.y * scale,
+      -center.z * scale
+    ];
+    return { baseScale: scale, centerOffset: offset };
+  }, [scene]);
 
   return (
     <group scale={customScale}>
-      <Center scale={baseScale}>
+      <group scale={baseScale} position={centerOffset}>
         <primitive 
           object={scene} 
           dispose={null} 
@@ -74,7 +78,7 @@ function HistoricalModel({ path, onMeshClick, customScale = 1 }: { path: string,
           }} 
           onPointerMissed={() => onMeshClick('')} 
         />
-      </Center>
+      </group>
     </group>
   );
 }
@@ -274,6 +278,7 @@ export default function App() {
 
   const handleExitHologram = () => {
     setIsHologramMode(false);
+    setModelScaleMultiplier(1);
     if (hologramTimerRef.current) clearTimeout(hologramTimerRef.current);
     try {
       if (document.fullscreenElement && document.exitFullscreen) {
@@ -489,51 +494,38 @@ export default function App() {
   useEffect(() => { localStorage.setItem('heritageData', JSON.stringify(monumentsData)); }, [monumentsData]);
 
   useEffect(() => { 
-    if (viewMode !== 'tour' && viewMode !== 'ar' && viewMode !== 'mask') controlsRef.current?.reset(); 
-    setSelectedMeshName(''); setExpandedSpec(null); setActiveSubModelPath('');
-    setSelectedRowIndex(null); setGameInput(''); setGameFeedback('idle'); setWrongCount(0); setShowExplanation(false); setShowRewardModal(false); setShowHexSubmit(false); setHexReasoning('');
-    setRowStates(activeMonu.gameData ? activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' })) : []);
-    setNpcStep(0); setNpcFeedback(null);
-    setActiveMaskIndex(null); // THÊM DÒNG NÀY ĐỂ RESET MẶT NẠ KHI ĐỔI BÀI
-    
-    if ((viewMode as string) === 'hex' && activeMonu.hexGameData) {
-        const nodes = activeMonu.hexGameData.map((item: any, i: number) => {
-            // Tương thích ngược: Nếu là bản cũ thì lấy string, bản mới thì lấy item.text
-            const nodeText = typeof item === 'string' ? item : item.text;
-            return {
-                id: `hex-${i}`, 
-                text: nodeText, 
-                x: 60 + (i % 4) * 140, 
-                y: 80 + Math.floor(i / 4) * 120
-            };
-        });
-        setHexNodes(nodes);
+    if (viewMode !== 'tour' && viewMode !== 'ar' && viewMode !== 'mask') {
+      controlsRef.current?.reset(); 
     }
-  }, [activeMonuId, viewMode, activeMonu.gameData, activeMonu.hexGameData]);
-
-  useEffect(() => { 
-    if (viewMode !== 'tour' && viewMode !== 'ar' && viewMode !== 'mask') controlsRef.current?.reset(); 
-    setSelectedMeshName(''); setExpandedSpec(null); setActiveSubModelPath('');
-    setSelectedRowIndex(null); setGameInput(''); setGameFeedback('idle'); setWrongCount(0); setShowExplanation(false); setShowRewardModal(false); setShowHexSubmit(false); setHexReasoning('');
+    setSelectedMeshName(''); 
+    setExpandedSpec(null); 
+    setActiveSubModelPath('');
+    setSelectedRowIndex(null); 
+    setGameInput(''); 
+    setGameFeedback('idle'); 
+    setWrongCount(0); 
+    setShowExplanation(false); 
+    setShowRewardModal(false); 
+    setShowHexSubmit(false); 
+    setHexReasoning('');
     setRowStates(activeMonu.gameData ? activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' })) : []);
-    setNpcStep(0); setNpcFeedback(null);
+    setNpcStep(0); 
+    setNpcFeedback(null);
     setActiveMaskIndex(null); 
     
-    // ĐOẠN ĐƯỢC CẬP NHẬT ĐỂ ĐỌC ĐÚNG DATA CMS MỚI
     if ((viewMode as string) === 'hex' && activeMonu.hexGameData) {
         const nodes = activeMonu.hexGameData.map((item: any, i: number) => {
-            // Kiểm tra xem data là String cũ hay Object mới từ CMS
             const textVal = typeof item === 'string' ? item : (item.text || 'Thẻ bài');
             return {
                 id: `hex-${i}`, 
                 text: textVal, 
-                x: 50 + (i % 3) * 160, // Tự động dàn đều các thẻ ra màn hình
+                x: 50 + (i % 3) * 160, 
                 y: 80 + Math.floor(i / 3) * 90
             };
         });
         setHexNodes(nodes);
     }
-  }, [activeMonuId, viewMode, activeMonu.gameData, activeMonu.hexGameData]);
+  }, [activeMonuId, viewMode]);
 
   const handleStudentAuth = async (e: FormEvent) => {
   e.preventDefault(); 
@@ -1200,7 +1192,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   <span className={`text-transparent bg-clip-text ${
                     isDarkMode 
                       ? 'bg-gradient-to-r from-zinc-200 via-zinc-400 to-zinc-500' 
-                      : 'bg-gradient-to-r from-zinc-950 via-zinc-600 to-zinc-400'
+                      : 'bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600'
                   }`}>
                     chạm vào hiện tại.
                   </span>
@@ -2666,7 +2658,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                 ) : viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && currentMainModelPath && isSketchfab(currentMainModelPath) ? (
                   <div style={{ width: '100%', height: '100%', padding: '0 20px 20px 20px', boxSizing: 'border-box' }}><iframe title="Sketchfab Model" src={getSketchfabEmbedUrl(currentMainModelPath)} width="100%" height="100%" frameBorder="0" allowFullScreen allow="autoplay; fullscreen; xr-spatial-tracking" style={{ borderRadius: '16px', background: '#111' }} /></div>
                 ) : viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' ? (
-                  <Canvas camera={{ position: [0, 1.5, 6], fov: 50 }} shadows>
+                  <Canvas camera={{ position: [0, 1.2, 5.5], fov: 45 }} shadows>
                     <ambientLight intensity={1.5} /><directionalLight position={[10, 10, 10]} intensity={1.5} />
                     <Suspense fallback={<Html center={true as any}><div style={{color: theme.textMain, fontWeight:600}}>Đang tải 3D...</div></Html>}>
                       {currentMainModelPath ? <ErrorBoundary><HistoricalModel key={activeMonu.id + viewMode + currentMainModelPath} path={currentMainModelPath} onMeshClick={setSelectedMeshName} customScale={modelScaleMultiplier} /></ErrorBoundary> : <Html center={true as any}><div style={{color: theme.textSub, fontSize:'14px'}}>Chưa có file mô hình.</div></Html>}
@@ -2676,11 +2668,13 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       ref={controlsRef} 
                       makeDefault 
                       enableDamping={true} 
+                      dampingFactor={0.05}
                       autoRotate={isAutoRotating} 
                       autoRotateSpeed={hologramSpeed}
                       enableZoom={true}
                       minDistance={0.5}
-                      maxDistance={35}
+                      maxDistance={60}
+                      target={[0, 0, 0]}
                       touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
                     />
                   </Canvas>
@@ -2823,7 +2817,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
             >
               {/* 3D Hologram Canvas */}
               <div className="absolute inset-0 z-0">
-                <Canvas camera={{ position: [0, 1.2, 5], fov: 45 }}>
+                <Canvas camera={{ position: [0, 1.0, 5.0], fov: 45 }}>
                   <ambientLight intensity={hologramBg === 'pure-black' ? 2.0 : 1.4} />
                   <directionalLight position={[10, 15, 10]} intensity={2.2} />
                   <directionalLight position={[-10, 10, -10]} intensity={1.2} />
@@ -2836,14 +2830,16 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     {hologramBg !== 'pure-black' && <Environment preset="city" />}
                   </Suspense>
                   <OrbitControls 
+                    makeDefault
                     enableDamping={true} 
                     dampingFactor={0.05}
                     autoRotate={isAutoRotating} 
                     autoRotateSpeed={hologramSpeed}
                     enablePan={false}
                     enableZoom={true}
-                    minDistance={0.5}
-                    maxDistance={35}
+                    minDistance={0.3}
+                    maxDistance={80}
+                    target={[0, 0, 0]}
                     touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
                   />
                 </Canvas>
@@ -2934,7 +2930,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setModelScaleMultiplier(prev => Math.max(0.3, Number((prev - 0.1).toFixed(2))));
+                      setModelScaleMultiplier(prev => Math.max(0.1, Number((prev - 0.1).toFixed(2))));
                       resetHologramIdleTimer();
                     }}
                     className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
@@ -2944,8 +2940,8 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   </button>
                   <input 
                     type="range" 
-                    min="0.3" 
-                    max="2.5" 
+                    min="0.1" 
+                    max="3.0" 
                     step="0.05" 
                     value={modelScaleMultiplier} 
                     onPointerDown={(e) => e.stopPropagation()}
@@ -2963,7 +2959,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setModelScaleMultiplier(prev => Math.min(2.5, Number((prev + 0.1).toFixed(2))));
+                      setModelScaleMultiplier(prev => Math.min(3.0, Number((prev + 0.1).toFixed(2))));
                       resetHologramIdleTimer();
                     }}
                     className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
