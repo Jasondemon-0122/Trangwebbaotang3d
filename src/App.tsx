@@ -212,6 +212,20 @@ export default function App() {
   const [landingQuizAnswer, setLandingQuizAnswer] = useState<number | null>(null);
   const [transitioningPanel, setTransitioningPanel] = useState<'left' | 'right' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [arDropdownOpen, setArDropdownOpen] = useState(false);
+  const [gameDropdownOpen, setGameDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.group-tab-container')) {
+        setArDropdownOpen(false);
+        setGameDropdownOpen(false);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
   
   const [activeRegion, setActiveRegion] = useState<'world' | 'vietnam'>('world');
   const [themeTitle, setThemeTitle] = useState<string>(''); 
@@ -2115,48 +2129,242 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
             <section className="cas-viewport">
               {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
                 <div className={`viewport-header ${viewMode === 'tour' ? 'tour-mode' : ''}`}>
-                  {role === 'admin' ? (
-                    <input className="admin-input-title" value={activeMonu.name || ''} onChange={(e) => handleUpdateName(e.target.value)} title="Bấm để sửa tên bài học" />
-                  ) : (
-                    <h2>{activeMonu.name} <span>{activeMonu.category}</span></h2>
-                  )}
+                  <div className="viewport-header-title">
+                    {role === 'admin' ? (
+                      <input className="admin-input-title" value={activeMonu.name || ''} onChange={(e) => handleUpdateName(e.target.value)} title="Bấm để sửa tên bài học" />
+                    ) : (
+                      <div className="flex items-center gap-2 min-w-0 shrink-0">
+                        <h2 className="viewport-title-text">{activeMonu.name}</h2>
+                        <span className="topic-badge">{activeMonu.category}</span>
+                      </div>
+                    )}
+                  </div>
                   
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <div className="viewport-tabs-wrapper">
                     <div className="view-mode-tabs">
-                      <button className={viewMode === 'normal' ? 'active' : ''} onClick={() => setViewMode('normal')}>Bề mặt 3D</button>
-                      <button className={viewMode === 'section' ? 'active' : ''} onClick={() => setViewMode('section')}>Mặt cắt</button>
-                      {activeMonu.tourUrl && <button className={viewMode === 'tour' ? 'active' : ''} onClick={() => setViewMode('tour')}>VR Tour</button>}
-                      {currentMainModelPath && <button className={(viewMode as string) === 'ar' ? 'active' : ''} onClick={() => setViewMode('ar')}>Xem AR</button>}
-                      <button className={(viewMode as string) === 'mask' ? 'active' : ''} onClick={() => { setViewMode('mask'); }}>🎭 Mặt Nạ AR</button>
-                      <button className={(viewMode as string) === 'hand' ? 'active' : ''} onClick={() => { setViewMode('hand'); setActiveHandIndex(null); }}>🖐️ Cổ Vật</button>
-                      {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && <button className={(viewMode as string) === 'npc' ? 'active' : ''} onClick={() => { setViewMode('npc'); setNpcStep(0); setNpcFeedback(null); }}>💬 Danh Nhân</button>}
-                      {activeMonu.gameData && activeMonu.gameData.length > 0 && <button className={(viewMode as string) === 'game' ? 'active' : ''} onClick={() => { setViewMode('game'); setSelectedRowIndex(null); setGameInput(''); setGameFeedback('idle'); setWrongCount(0); setShowExplanation(false); setShowRewardModal(false); setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' }))); }}>🎮 Ô chữ</button>}
-                      {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && <button className={(viewMode as string) === 'hex' ? 'active' : ''} onClick={() => { setViewMode('hex'); setShowHexSubmit(false); setHexReasoning(''); }}>🧠 Lục giác</button>}
+                      {/* Tab 1: Bề mặt 3D */}
+                      <button 
+                        type="button"
+                        className={viewMode === 'normal' ? 'active' : ''} 
+                        onClick={() => { setViewMode('normal'); setArDropdownOpen(false); setGameDropdownOpen(false); }}
+                      >
+                        Bề mặt 3D
+                      </button>
+
+                      {/* Tab 2: Mặt cắt 3D */}
+                      <button 
+                        type="button"
+                        className={viewMode === 'section' ? 'active' : ''} 
+                        onClick={() => { setViewMode('section'); setArDropdownOpen(false); setGameDropdownOpen(false); }}
+                      >
+                        Mặt cắt
+                      </button>
+
+                      {/* Tab 3: VR Tour */}
+                      {activeMonu.tourUrl && (
+                        <button 
+                          type="button"
+                          className={viewMode === 'tour' ? 'active' : ''} 
+                          onClick={() => { setViewMode('tour'); setArDropdownOpen(false); setGameDropdownOpen(false); }}
+                        >
+                          VR Tour
+                        </button>
+                      )}
+
+                      {/* Tab 4: Nhóm Không gian AR (Gom AR vào 1 nhóm trên thanh tab) */}
+                      <div className="relative group-tab-container">
+                        <button 
+                          type="button"
+                          className={`cursor-pointer ${((viewMode as string) === 'ar' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArDropdownOpen(!arDropdownOpen);
+                            setGameDropdownOpen(false);
+                          }}
+                          title="Không gian AR & Thực tế ảo"
+                        >
+                          <span>
+                            {(viewMode as string) === 'ar' ? '📱 Xem AR' : (viewMode as string) === 'mask' ? '🎭 Mặt Nạ AR' : (viewMode as string) === 'hand' ? '🖐️ Cổ Vật' : '📱 Không gian AR'}
+                          </span>
+                          <span className={`text-[9px] transition-transform ${arDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                        </button>
+
+                        {/* Dropdown Menu AR */}
+                        {arDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-zinc-900/95 dark:bg-zinc-900/95 bg-white/95 backdrop-blur-xl border border-white/10 dark:border-white/10 border-zinc-200 shadow-2xl p-1.5 z-50 flex flex-col gap-1">
+                            {currentMainModelPath && (
+                              <button
+                                type="button"
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                  (viewMode as string) === 'ar' 
+                                    ? 'bg-cyan-500/20 text-cyan-300' 
+                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                                }`}
+                                onClick={() => { setViewMode('ar'); setArDropdownOpen(false); }}
+                              >
+                                <span>📱</span>
+                                <div>
+                                  <div className="font-bold">Xem AR trên bàn</div>
+                                  <div className="text-[10px] text-zinc-400">Chiếu mô hình 3D thực tế</div>
+                                </div>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                (viewMode as string) === 'mask' 
+                                  ? 'bg-pink-500/20 text-pink-300' 
+                                  : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                              }`}
+                              onClick={() => { setViewMode('mask'); setArDropdownOpen(false); }}
+                            >
+                              <span>🎭</span>
+                              <div>
+                                <div className="font-bold">Mặt Nạ Hóa Thân AR</div>
+                                <div className="text-[10px] text-zinc-400">Đeo mặt nạ & nghe audio</div>
+                              </div>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                (viewMode as string) === 'hand' 
+                                  ? 'bg-amber-500/20 text-amber-300' 
+                                  : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                              }`}
+                              onClick={() => { setViewMode('hand'); setActiveHandIndex(null); setArDropdownOpen(false); }}
+                            >
+                              <span>🖐️</span>
+                              <div>
+                                <div className="font-bold">Cổ Vật Cầm Tay 3D</div>
+                                <div className="text-[10px] text-zinc-400">Tương tác cầm nắm cổ vật</div>
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tab 5: Nhóm Trò chơi & Ô chữ (Gom trò chơi, danh nhân và ô chữ vào 1 nhóm trên thanh tab) */}
+                      <div className="relative group-tab-container">
+                        <button 
+                          type="button"
+                          className={`cursor-pointer ${((viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc') ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGameDropdownOpen(!gameDropdownOpen);
+                            setArDropdownOpen(false);
+                          }}
+                          title="Trò chơi ôn tập & Hỏi đáp lịch sử"
+                        >
+                          <span>
+                            {(viewMode as string) === 'game' ? '🎮 Ô chữ' : (viewMode as string) === 'hex' ? '🧠 Lục giác' : (viewMode as string) === 'npc' ? '💬 Danh Nhân' : '🎮 Trò chơi & Ô chữ'}
+                          </span>
+                          <span className={`text-[9px] transition-transform ${gameDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                        </button>
+
+                        {/* Dropdown Menu Trò Chơi */}
+                        {gameDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-zinc-900/95 dark:bg-zinc-900/95 bg-white/95 backdrop-blur-xl border border-white/10 dark:border-white/10 border-zinc-200 shadow-2xl p-1.5 z-50 flex flex-col gap-1">
+                            {activeMonu.gameData && activeMonu.gameData.length > 0 && (
+                              <button
+                                type="button"
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                  (viewMode as string) === 'game' 
+                                    ? 'bg-purple-500/20 text-purple-300' 
+                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                                }`}
+                                onClick={() => {
+                                  setViewMode('game');
+                                  setSelectedRowIndex(null);
+                                  setGameInput('');
+                                  setGameFeedback('idle');
+                                  setWrongCount(0);
+                                  setShowExplanation(false);
+                                  setShowRewardModal(false);
+                                  setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' })));
+                                  setGameDropdownOpen(false);
+                                }}
+                              >
+                                <span>🎮</span>
+                                <div>
+                                  <div className="font-bold">Ma Trận Ô Chữ</div>
+                                  <div className="text-[10px] text-zinc-400">Giải mã từ khóa lịch sử</div>
+                                </div>
+                              </button>
+                            )}
+
+                            {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && (
+                              <button
+                                type="button"
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                  (viewMode as string) === 'hex' 
+                                    ? 'bg-blue-500/20 text-blue-300' 
+                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                                }`}
+                                onClick={() => {
+                                  setViewMode('hex');
+                                  setShowHexSubmit(false);
+                                  setHexReasoning('');
+                                  setGameDropdownOpen(false);
+                                }}
+                              >
+                                <span>🧠</span>
+                                <div>
+                                  <div className="font-bold">Sơ Đồ Lục Giác</div>
+                                  <div className="text-[10px] text-zinc-400">Kết nối tư duy liên hệ</div>
+                                </div>
+                              </button>
+                            )}
+
+                            {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && (
+                              <button
+                                type="button"
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                                  (viewMode as string) === 'npc' 
+                                    ? 'bg-emerald-500/20 text-emerald-300' 
+                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
+                                }`}
+                                onClick={() => {
+                                  setViewMode('npc');
+                                  setNpcStep(0);
+                                  setNpcFeedback(null);
+                                  setGameDropdownOpen(false);
+                                }}
+                              >
+                                <span>💬</span>
+                                <div>
+                                  <div className="font-bold">Đối Thoại Danh Nhân</div>
+                                  <div className="text-[10px] text-zinc-400">Hỏi đáp nhân vật lịch sử</div>
+                                </div>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-
                   </div>
                 </div>
               )}
 
               <div className="canvas-wrapper" style={((viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '420px', position: 'relative', overflow: 'hidden' } : { position: 'relative', flex: 1 }}>
 
-                {/* Floating Turntable Controls (Bố trí ở góc dưới phải để không che khuất các tab chế độ ở trên) */}
+                {/* Floating Turntable Controls (Gọn gàng, không cản trở tầm nhìn mô hình) */}
                 {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && !isSketchfab(currentMainModelPath) && (
                   <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-zinc-900/85 hover:bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl transition-all">
+                    <div className="flex items-center gap-1 p-1 rounded-full bg-zinc-900/85 dark:bg-zinc-900/85 bg-white/90 backdrop-blur-xl border border-white/10 dark:border-white/10 border-zinc-200 shadow-xl transition-all">
                       {/* Auto Rotate Button */}
                       <button 
                         type="button" 
                         onClick={() => setIsAutoRotating(!isAutoRotating)} 
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                           isAutoRotating 
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
-                            : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10 hover:text-white'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                            : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
                         }`}
                         title="Bật/Tắt tự động xoay mô hình (Phím cách Space)"
                       >
-                        <span>{isAutoRotating ? '⏸ Dừng xoay' : '🔄 Tự xoay 360°'}</span>
+                        <span>{isAutoRotating ? '⏸ Dừng xoay' : '🔄 Tự xoay'}</span>
                       </button>
 
                       {/* Recenter & Reset Camera Button */}
@@ -2166,7 +2374,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                           controlsRef.current?.reset();
                           setModelScaleMultiplier(1);
                         }} 
-                        className="px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10 hover:text-white"
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100"
                         title="Căn giữa lại mô hình và đặt lại góc nhìn chuẩn"
                       >
                         <span>🎯 Căn giữa</span>
