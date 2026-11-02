@@ -201,7 +201,9 @@ export default function App() {
  const [role, setRole] = useState<'guest' | 'student' | 'teacher' | 'admin'>('guest');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  useEffect(() => { document.body.className = isDarkMode ? 'dark-mode' : 'light-mode'; }, [isDarkMode]);
+  useEffect(() => { 
+    document.body.className = (isDarkMode ? 'dark-mode' : 'light-mode') + (page === 'landing' ? ' has-landing-scroll' : ''); 
+  }, [isDarkMode, page]);
 
   const [showLogin, setShowLogin] = useState(false);
   const [password, setPassword] = useState('');
@@ -918,14 +920,14 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
       <div className={`global-loader ${isLoading ? 'visible' : 'hidden'}`}>
         <div className="spinner"></div><div className="loader-text">Đang xử lý...</div>
       </div>
-{/* LANDING PAGE - TASTESKILL ANTI-SLOP ART DIRECTION (MINIMALIST, CONFIDENT, EDITORIAL 3D HERITAGE) */}
+{/* LANDING PAGE - TASTESKILL & UI/UX PRO (STUDENT-FRIENDLY, MINIMALIST, HIGH TASTE) */}
       {page === 'landing' && (
-        <div className={`min-h-[100dvh] w-full flex flex-col font-sans transition-colors duration-200 ${
+        <div className={`landing-wrapper h-[100dvh] max-h-[100dvh] w-full flex flex-col font-sans overflow-y-auto overflow-x-hidden transition-colors duration-200 ${
           isDarkMode ? 'bg-[#09090b] text-[#f4f4f5]' : 'bg-[#fafafa] text-[#18181b]'
         }`}>
           
           {/* Header: Clean, Solid Architectural Bar */}
-          <header className={`w-full border-b transition-colors duration-200 ${
+          <header className={`w-full border-b shrink-0 transition-colors duration-200 ${
             isDarkMode ? 'bg-[#09090b] border-[#27272a]' : 'bg-white border-[#e4e4e7]'
           }`}>
             <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -944,16 +946,18 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   <span className="font-extrabold text-base tracking-tight uppercase">
                     Heritage Studio
                   </span>
-                  <span className={`text-xs font-medium hidden sm:inline ${
-                    isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
+                  <span className={`text-xs font-medium hidden sm:inline px-2 py-0.5 rounded-full border ${
+                    isDarkMode 
+                      ? 'text-zinc-400 border-zinc-800 bg-zinc-900' 
+                      : 'text-zinc-600 border-zinc-200 bg-zinc-100'
                   }`}>
                     Lịch sử 10 • GDPT 2018
                   </span>
                 </div>
               </div>
 
-              {/* Actions: Direct & Functional */}
-              <div className="flex items-center gap-3">
+              {/* Actions: Direct & Student-Friendly */}
+              <div className="flex items-center gap-2.5">
                 <button 
                   type="button" 
                   className={`h-9 px-3 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
@@ -962,9 +966,9 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       : 'border-[#e4e4e7] hover:bg-zinc-100 text-zinc-700'
                   }`}
                   onClick={() => setIsDarkMode(!isDarkMode)} 
-                  title={isDarkMode ? "Chế độ sáng" : "Chế độ tối"}
+                  title={isDarkMode ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
                 >
-                  {isDarkMode ? 'Sáng' : 'Tối'}
+                  {isDarkMode ? '☀️ Sáng' : '🌙 Tối'}
                 </button>
 
                 {!currentUser ? (
@@ -981,62 +985,72 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
 
                     <button 
                       type="button" 
-                      className={`text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer ${
+                      className={`text-xs font-semibold px-4 py-2 rounded-md transition-all cursor-pointer ${
                         isDarkMode 
                           ? 'bg-white text-black hover:bg-zinc-200' 
                           : 'bg-black text-white hover:bg-zinc-800'
                       }`}
                       onClick={() => handleNavigateToPage('split-choice')}
                     >
-                      Bắt đầu học
+                      Bắt đầu học ngay →
                     </button>
                   </>
                 ) : (
                   <button 
                     type="button" 
-                    className={`text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer ${
+                    className={`text-xs font-semibold px-4 py-2 rounded-md transition-all cursor-pointer ${
                       isDarkMode 
                         ? 'bg-white text-black hover:bg-zinc-200' 
                         : 'bg-black text-white hover:bg-zinc-800'
                     }`}
                     onClick={() => handleNavigateToPage('split-choice')}
                   >
-                    Vào bài học
+                    Vào bài học →
                   </button>
                 )}
               </div>
             </div>
           </header>
 
-          {/* Main Stage */}
-          <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-16 sm:gap-24">
+          {/* Main Stage (Scrollable Content) */}
+          <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-16 sm:gap-20">
             
-            {/* 1. HERO SECTION: INTENTIONAL, CONFIDENT, ANTI-SLOP */}
+            {/* 1. HERO SECTION: WARM, INSPIRING & CURIOSITY-DRIVEN */}
             <section className="flex flex-col items-start text-left max-w-4xl">
-              <h1 className={`text-4xl sm:text-6xl font-black tracking-tight leading-[1.05] ${
+              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4 border ${
+                isDarkMode 
+                  ? 'border-zinc-800 bg-zinc-900/80 text-amber-300' 
+                  : 'border-amber-200 bg-amber-50 text-amber-900'
+              }`}>
+                <span>🏛️</span>
+                <span>Học liệu số 3D • Bám sát SGK Kết nối tri thức</span>
+              </div>
+
+              <h1 className={`text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] ${
                 isDarkMode ? 'text-white' : 'text-black'
               }`}>
-                Lịch sử 10 qua không gian 3D
+                Chạm vào Lịch Sử 10<br className="hidden sm:block" />
+                qua Không gian 3D tương tác
               </h1>
 
               <p className={`text-base sm:text-lg font-normal mt-4 max-w-2xl leading-relaxed ${
                 isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
               }`}>
-                Học liệu số trực quan bám sát chương trình GDPT 2018: xoay 360° cổ vật ngàn năm, 
-                giải phẫu hầm ngầm kỳ quan và tiếp cận kiến thức lịch sử bằng trải nghiệm thực tế.
+                Tự tay xoay chạm cổ vật ngàn năm, giải mã cấu trúc kỳ quan và bứt phá điểm số 
+                môn Lịch sử bằng trải nghiệm 360° trực quan ngay trên điện thoại hoặc máy tính.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 mt-6">
                 <button 
                   type="button" 
-                  className={`text-sm font-semibold px-5 py-3 rounded-md transition-colors cursor-pointer ${
+                  className={`text-sm font-semibold px-5 py-3 rounded-md transition-all cursor-pointer ${
                     isDarkMode 
-                      ? 'bg-white text-black hover:bg-zinc-200' 
-                      : 'bg-black text-white hover:bg-zinc-800'
+                      ? 'bg-white text-black hover:bg-zinc-200 shadow-sm' 
+                      : 'bg-black text-white hover:bg-zinc-800 shadow-sm'
                   }`}
                   onClick={() => handleNavigateToPage('split-choice')}
                 >
-                  Khám phá bài học ngay →
+                  Trải nghiệm 3D ngay (Khách) 🚀
                 </button>
 
                 {!currentUser && (
@@ -1049,30 +1063,30 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     }`}
                     onClick={() => { setAuthMode('register'); setPage('student-auth'); }}
                   >
-                    Tạo tài khoản học sinh
+                    Đăng ký học sinh để lưu điểm ✨
                   </button>
                 )}
               </div>
             </section>
 
-            {/* 2. LIVE 3D EXHIBITION STAGE (ONE LIVE THING) */}
+            {/* 2. THE CENTERPIECE 3D STAGE (INTERACTIVE TOYBOX) */}
             <section className="flex flex-col gap-4">
-              {/* Exhibit Switcher */}
+              {/* Exhibit Switcher Tabs */}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {HERO_ARTIFACTS.map((artifact, idx) => (
                     <button
                       key={artifact.id}
                       type="button"
                       onClick={() => setLandingArtifactIndex(idx)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                         landingArtifactIndex === idx
                           ? isDarkMode
-                            ? 'bg-[#27272a] text-white'
-                            : 'bg-zinc-200 text-black'
+                            ? 'bg-[#27272a] text-white border border-zinc-700'
+                            : 'bg-zinc-900 text-white border border-zinc-900'
                           : isDarkMode
-                            ? 'text-zinc-400 hover:text-white'
-                            : 'text-zinc-600 hover:text-black'
+                            ? 'bg-zinc-900/60 text-zinc-400 hover:text-white border border-zinc-800'
+                            : 'bg-zinc-100 text-zinc-700 hover:text-black border border-zinc-200'
                       }`}
                     >
                       {artifact.name}
@@ -1080,54 +1094,55 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   ))}
                 </div>
 
+                {/* View Mode Toggle */}
                 <div className="flex items-center gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setLandingTabMode('3d')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded transition-colors cursor-pointer font-medium ${
                       landingTabMode === '3d'
                         ? isDarkMode ? 'bg-[#27272a] text-white' : 'bg-zinc-200 text-black'
-                        : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-black'
+                        : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-zinc-500 hover:text-black'
                     }`}
                   >
-                    Mô hình 3D
+                    Xoay 3D trực tiếp
                   </button>
                   <button
                     type="button"
                     onClick={() => setLandingTabMode('photo')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded transition-colors cursor-pointer font-medium ${
                       landingTabMode === 'photo'
                         ? isDarkMode ? 'bg-[#27272a] text-white' : 'bg-zinc-200 text-black'
-                        : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-black'
+                        : isDarkMode ? 'text-zinc-500 hover:text-white' : 'text-zinc-500 hover:text-black'
                     }`}
                   >
-                    Ảnh tư liệu
+                    Ảnh tư liệu lịch sử
                   </button>
                 </div>
               </div>
 
               {/* Viewport Frame */}
-              <div className={`w-full h-[400px] sm:h-[480px] rounded-lg border relative overflow-hidden transition-colors ${
+              <div className={`w-full h-[400px] sm:h-[480px] rounded-xl border relative overflow-hidden transition-colors shadow-sm ${
                 isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-[#f4f4f5] border-[#e4e4e7]'
               }`}>
                 
-                {/* Subtle User Instruction */}
-                <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                  <span className={`text-[11px] font-medium uppercase px-2 py-1 rounded ${
-                    isDarkMode ? 'bg-[#18181b] text-zinc-400 border border-[#27272a]' : 'bg-white text-zinc-500 border border-[#e4e4e7]'
+                {/* Floating User Hint & Curiosity Pill */}
+                <div className="absolute top-4 left-4 z-10 pointer-events-none flex flex-col gap-1.5">
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border shadow-xs ${
+                    isDarkMode ? 'bg-[#18181b]/90 text-amber-300 border-zinc-800' : 'bg-white/95 text-amber-900 border-amber-200'
                   }`}>
-                    Kéo để xoay 360°
+                    👆 Dùng ngón tay hoặc chuột để xoay 360°
                   </span>
                 </div>
 
                 {landingTabMode === '3d' ? (
                   <Canvas camera={{ position: [0, 1.2, 4.8], fov: 45 }}>
-                    <ambientLight intensity={1.5} />
+                    <ambientLight intensity={1.6} />
                     <directionalLight position={[10, 10, 10]} intensity={1.5} />
                     <Suspense fallback={
                       <Html center>
-                        <div className="text-xs font-medium text-zinc-500">
-                          Đang tải 3D...
+                        <div className="text-xs font-semibold text-zinc-500 tracking-wider">
+                          Đang tải mô hình 3D...
                         </div>
                       </Html>
                     }>
@@ -1151,198 +1166,226 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     <img 
                       src={HERO_ARTIFACTS[landingArtifactIndex].image} 
                       alt={HERO_ARTIFACTS[landingArtifactIndex].name}
-                      className="max-h-full max-w-full object-contain rounded"
+                      className="max-h-full max-w-full object-contain rounded-md"
                     />
                   </div>
                 )}
 
                 {/* Viewport Bottom Bar */}
                 <div className={`absolute bottom-0 inset-x-0 p-4 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                  isDarkMode ? 'bg-[#09090b]/90 border-[#27272a]' : 'bg-white/90 border-[#e4e4e7]'
+                  isDarkMode ? 'bg-[#09090b]/95 border-[#27272a]' : 'bg-white/95 border-[#e4e4e7]'
                 }`}>
                   <div className="flex flex-col">
-                    <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                      {HERO_ARTIFACTS[landingArtifactIndex].name}
-                    </span>
-                    <span className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                        {HERO_ARTIFACTS[landingArtifactIndex].name}
+                      </span>
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">
+                        {HERO_ARTIFACTS[landingArtifactIndex].tag}
+                      </span>
+                    </div>
+                    <span className={`text-xs mt-0.5 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
                       {HERO_ARTIFACTS[landingArtifactIndex].period} • {HERO_ARTIFACTS[landingArtifactIndex].facts.join(' • ')}
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    className={`text-xs font-semibold px-4 py-2 rounded transition-colors cursor-pointer self-start sm:self-auto ${
+                    className={`text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer self-start sm:self-auto flex items-center gap-1.5 ${
                       isDarkMode ? 'bg-white text-black hover:bg-zinc-200' : 'bg-black text-white hover:bg-zinc-800'
                     }`}
                     onClick={() => navigateToApp(HERO_ARTIFACTS[landingArtifactIndex].lessonId, currentUser ? 'student' : 'guest')}
                   >
-                    Xem bài học 3D chi tiết →
+                    <span>Khám phá toàn bộ bài học này (3D Studio)</span>
+                    <span>→</span>
                   </button>
                 </div>
               </div>
             </section>
 
-            {/* 3. THREE CORE EXHIBITS (ARCHITECTURAL LEDGER) */}
+            {/* 3. THREE CORE CURRICULUM EXHIBITS */}
             <section className="flex flex-col gap-6">
               <div className="flex flex-col gap-1">
                 <h2 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  3 Di sản tiêu biểu trong chương trình
+                  3 Kỳ quan nổi bật trong chương trình
                 </h2>
                 <p className={`text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  Mô hình số hóa độ chính xác cao phục vụ dạy và học môn Lịch sử 10
+                  Mô hình 3D bám sát các bài học trọng tâm trong sách giáo khoa Lịch sử 10
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Exhibit 1 */}
+                {/* Exhibit 1: Kim Tự Tháp Giza */}
                 <div 
-                  className={`p-6 rounded-lg border flex flex-col justify-between transition-colors cursor-pointer ${
-                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400'
+                  className={`p-6 rounded-xl border flex flex-col justify-between transition-colors cursor-pointer ${
+                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400 shadow-xs'
                   }`}
                   onClick={() => navigateToApp('pyramid', currentUser ? 'student' : 'guest')}
                 >
-                  <div className="flex flex-col gap-3">
-                    <span className={`text-xs font-medium ${
-                      isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
-                    }`}>
-                      Ai Cập Cổ Đại • 2560 TCN
+                  <div className="flex flex-col gap-2.5">
+                    <span className={`text-xs font-semibold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                      Chủ đề 3 • Văn minh Ai Cập Cổ Đại
                     </span>
                     <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
                       Kim Tự Tháp Giza
                     </h3>
                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      Khám phá 3 đường hầm ngầm bí ẩn và buồng an nghỉ của Pharaoh Khufu bằng mô hình giải phẫu trực quan.
+                      Bóc tách 3 đường hầm ngầm kỳ bí và buồng an nghỉ của Pharaoh Khufu bằng mô hình giải phẫu chuẩn xác.
                     </p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Mặt cắt 3D</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">VR Tour</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">2560 TCN</span>
+                    </div>
                   </div>
                   <div className="mt-6 pt-4 border-t border-inherit flex items-center justify-between text-xs font-semibold">
-                    <span>Xem mô hình 3D</span>
+                    <span>Vào bài giảng 3D</span>
                     <span>→</span>
                   </div>
                 </div>
 
-                {/* Exhibit 2 */}
+                {/* Exhibit 2: Trống Đồng Đông Sơn */}
                 <div 
-                  className={`p-6 rounded-lg border flex flex-col justify-between transition-colors cursor-pointer ${
-                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400'
+                  className={`p-6 rounded-xl border flex flex-col justify-between transition-colors cursor-pointer ${
+                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400 shadow-xs'
                   }`}
                   onClick={() => navigateToApp('dongson', currentUser ? 'student' : 'guest')}
                 >
-                  <div className="flex flex-col gap-3">
-                    <span className={`text-xs font-medium ${
-                      isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
-                    }`}>
-                      Văn Lang - Âu Lạc • TK VII TCN
+                  <div className="flex flex-col gap-2.5">
+                    <span className={`text-xs font-semibold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                      Lịch sử Việt Nam • Bảo vật Quốc gia
                     </span>
                     <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
                       Trống Đồng Đông Sơn
                     </h3>
                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      Giải mã hoa văn chim Lạc, cảnh giã gạo và kỹ thuật đúc đồng đỉnh cao của người Việt cổ.
+                      Chiêm ngưỡng hoa văn chim Lạc, vũ điệu giã gạo và đời sống người Việt cổ thời Hùng Vương.
                     </p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Ngôi sao 14 cánh</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Đồ đồng cổ</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Văn Lang</span>
+                    </div>
                   </div>
                   <div className="mt-6 pt-4 border-t border-inherit flex items-center justify-between text-xs font-semibold">
-                    <span>Xem mô hình 3D</span>
+                    <span>Vào bài giảng 3D</span>
                     <span>→</span>
                   </div>
                 </div>
 
-                {/* Exhibit 3 */}
+                {/* Exhibit 3: Đấu Trường Colosseum */}
                 <div 
-                  className={`p-6 rounded-lg border flex flex-col justify-between transition-colors cursor-pointer ${
-                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400'
+                  className={`p-6 rounded-xl border flex flex-col justify-between transition-colors cursor-pointer ${
+                    isDarkMode ? 'bg-[#121214] border-[#27272a] hover:border-zinc-500' : 'bg-white border-[#e4e4e7] hover:border-zinc-400 shadow-xs'
                   }`}
                   onClick={() => navigateToApp('rome-colosseum', currentUser ? 'student' : 'guest')}
                 >
-                  <div className="flex flex-col gap-3">
-                    <span className={`text-xs font-medium ${
-                      isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
-                    }`}>
-                      La Mã Cổ Đại • Năm 80 SCN
+                  <div className="flex flex-col gap-2.5">
+                    <span className={`text-xs font-semibold ${isDarkMode ? 'text-sky-400' : 'text-sky-700'}`}>
+                      Chủ đề 4 • Văn minh La Mã Cổ Đại
                     </span>
                     <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
                       Đấu Trường Colosseum
                     </h3>
                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      Kiến trúc vòm cuốn đồ sộ, sức chứa 50.000 khán giả, biểu tượng kỹ thuật xây dựng thời cổ đại.
+                      Kỳ quan kiến trúc vòm cuốn đồ sộ, sức chứa 50.000 khán giả, biểu tượng kỹ thuật xây dựng thời cổ đại.
                     </p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Vòm cuốn</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Hologram 360°</span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-500">Năm 80 SCN</span>
+                    </div>
                   </div>
                   <div className="mt-6 pt-4 border-t border-inherit flex items-center justify-between text-xs font-semibold">
-                    <span>Xem mô hình 3D</span>
+                    <span>Vào bài giảng 3D</span>
                     <span>→</span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* 4. METHODOLOGY (3 TÍNH NĂNG THỰC CHẤT, KHÔNG SLOP) */}
+            {/* 4. FOUR EXCITING WAYS TO LEARN (HỌC KHÔNG NHÀM CHÁN) */}
             <section className="flex flex-col gap-6">
               <div className="flex flex-col gap-1">
                 <h2 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  Phương pháp học trực quan
+                  4 Trải nghiệm học tập đột phá
                 </h2>
                 <p className={`text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  Ứng dụng công nghệ đồ họa không gian phục vụ bài giảng
+                  Các công cụ giúp học sinh hào hứng tiếp thu kiến thức và đạt điểm cao
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className={`p-5 rounded-lg border ${
-                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7]'
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className={`p-5 rounded-xl border flex flex-col gap-2 ${
+                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7] shadow-xs'
                 }`}>
-                  <div className="text-sm font-bold mb-2">01. Bóc tách không gian 3D</div>
+                  <div className="text-xl">🏛️</div>
+                  <div className="text-sm font-bold">Giải phẫu không gian 3D</div>
                   <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    Xem cấu trúc mặt ngoài, mặt cắt giải phẫu và hệ thống hầm ngầm của các công trình cổ đại với số đo và niên đại chuẩn xác.
+                    Bóc tách từng mặt cắt, hầm ngầm bí mật và số đo thực tế để hiểu sâu bản chất kiến trúc cổ đại.
                   </p>
                 </div>
 
-                <div className={`p-5 rounded-lg border ${
-                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7]'
+                <div className={`p-5 rounded-xl border flex flex-col gap-2 ${
+                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7] shadow-xs'
                 }`}>
-                  <div className="text-sm font-bold mb-2">02. Chiếu Sa bàn & Hologram</div>
+                  <div className="text-xl">📱</div>
+                  <div className="text-sm font-bold">Thực tế ảo AR & Mặt nạ</div>
                   <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    Chế độ trình chiếu 360° toàn màn hình tối ưu cho lăng kính phản chiếu Hologram và bài thuyết trình trên lớp học.
+                    Đưa cổ vật ra bàn học bằng camera điện thoại, đeo mặt nạ nhân vật và nghe thuyết minh trực quan.
                   </p>
                 </div>
 
-                <div className={`p-5 rounded-lg border ${
-                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7]'
+                <div className={`p-5 rounded-xl border flex flex-col gap-2 ${
+                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7] shadow-xs'
                 }`}>
-                  <div className="text-sm font-bold mb-2">03. Đấu trường Ma trận Ô chữ</div>
+                  <div className="text-xl">🔮</div>
+                  <div className="text-sm font-bold">Chiếu Hologram 360°</div>
                   <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    Tổng hợp từ khóa và sự kiện lịch sử cốt lõi theo dạng ma trận ô chữ và sơ đồ tư duy lục giác giúp nhớ lâu.
+                    Chiếu mô hình bay lơ lửng ngoài đời thực qua lăng kính mica, cực kỳ ấn tượng trong bài thuyết trình.
+                  </p>
+                </div>
+
+                <div className={`p-5 rounded-xl border flex flex-col gap-2 ${
+                  isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7] shadow-xs'
+                }`}>
+                  <div className="text-xl">🧩</div>
+                  <div className="text-sm font-bold">Đấu trường Ô chữ & Game</div>
+                  <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    Củng cố mốc sự kiện và khái niệm cốt lõi SGK qua trò chơi ô chữ và sơ đồ tư duy lục giác nhớ lâu.
                   </p>
                 </div>
               </div>
             </section>
 
-            {/* 5. TASTEFUL QUICK CHALLENGE */}
-            <section className={`p-6 sm:p-8 rounded-lg border ${
-              isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7]'
+            {/* 5. QUICK QUIZ CHALLENGE */}
+            <section className={`p-6 sm:p-8 rounded-xl border ${
+              isDarkMode ? 'bg-[#121214] border-[#27272a]' : 'bg-white border-[#e4e4e7] shadow-xs'
             }`}>
-              <div className="max-w-xl mx-auto flex flex-col items-center text-center gap-4">
-                <span className={`text-xs font-medium ${
-                  isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
+              <div className="max-w-xl mx-auto flex flex-col items-center text-center gap-3">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded ${
+                  isDarkMode ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-100 text-amber-800'
                 }`}>
-                  Câu hỏi tương tác nhanh
+                  💡 Thử tài khảo cổ 60 giây
                 </span>
                 <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
                   Kim Tự Tháp Giza được xây dựng từ khoảng bao nhiêu khối đá?
                 </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mt-3">
                   {[
                     { id: 0, label: "500 nghìn khối", correct: false },
-                    { id: 1, label: "Hơn 2.3 triệu khối", correct: true },
+                    { id: 1, label: "Hơn 2.3 triệu khối ✨", correct: true },
                     { id: 2, label: "10 triệu khối", correct: false }
                   ].map(choice => (
                     <button
                       key={choice.id}
                       type="button"
                       onClick={() => setLandingQuizAnswer(choice.id)}
-                      className={`p-3 rounded text-xs font-semibold border transition-colors cursor-pointer ${
+                      className={`p-3 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                         landingQuizAnswer === choice.id
                           ? choice.correct
-                            ? isDarkMode ? 'bg-white text-black border-white' : 'bg-black text-white border-black'
+                            ? isDarkMode ? 'bg-white text-black border-white shadow-sm' : 'bg-black text-white border-black shadow-sm'
                             : 'bg-red-900/30 text-red-400 border-red-800'
                           : isDarkMode
                             ? 'border-[#27272a] hover:bg-[#18181b] text-zinc-300'
@@ -1355,14 +1398,14 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                 </div>
 
                 {landingQuizAnswer !== null && (
-                  <div className="mt-2 text-xs font-medium">
+                  <div className="mt-3 text-xs font-medium">
                     {landingQuizAnswer === 1 ? (
-                      <span className="text-emerald-500">
-                        Chính xác. Hơn 2.3 triệu khối đá vôi và đá granit được đẽo gọt và xếp khít hoàn hảo.
+                      <span className="text-emerald-500 font-semibold">
+                        🎉 Chính xác! Bạn nhận được +50 EXP Khảo cổ. Hơn 2.3 triệu khối đá được đẽo gọt xếp khít hoàn hảo!
                       </span>
                     ) : (
-                      <span className="text-amber-500">
-                        Chưa chính xác. Con số thực tế lên tới hơn 2 triệu khối đá. Hãy thử chọn lại.
+                      <span className="text-amber-500 font-semibold">
+                        💡 Gợi ý: Con số thực tế lên tới hơn 2 triệu khối đá cơ đấy. Hãy thử chọn lại!
                       </span>
                     )}
                   </div>
@@ -1394,7 +1437,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   className="hover:underline cursor-pointer"
                   onClick={() => setShowLogin(true)}
                 >
-                  Cổng Giáo viên (CMS)
+                  🔐 Cổng Giáo viên (CMS)
                 </button>
               </div>
             </footer>

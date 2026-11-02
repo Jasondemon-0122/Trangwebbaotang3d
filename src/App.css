@@ -58,6 +58,11 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body.has-landing-scroll {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
 .cas-container { 
   width: 100vw; 
   height: 100vh; 
@@ -638,35 +643,39 @@ body.light-mode .cas-gallery-section {
   height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   position: relative;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 160, 160, 0.4) transparent;
 }
 body.dark-mode .landing-wrapper {
-  background-color: #030712 !important;
-  color: #f8fafc !important;
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
 }
 body.light-mode .landing-wrapper {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
+  background-color: #fafafa !important;
+  color: #18181b !important;
 }
 .landing-wrapper::-webkit-scrollbar {
-  width: 7px;
+  width: 8px;
 }
 .landing-wrapper::-webkit-scrollbar-track {
-  background: rgba(3, 7, 18, 0.6);
+  background: transparent;
 }
 .landing-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(140, 140, 150, 0.35);
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 .landing-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.45);
+  background: rgba(140, 140, 150, 0.65);
 }
 
 .btn-primary { font-family: 'Inter', sans-serif; background: #fff; color: #0f172a; border: 2px solid #fff; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(255,255,255,0.2);}
