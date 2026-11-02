@@ -1804,3 +1804,105 @@ body.light-mode .howard-glass-card:hover {
   border-color: rgba(2, 132, 199, 0.4);
   box-shadow: 0 20px 40px -15px rgba(2, 132, 199, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1);
 }
+
+/* ==========================================================================
+   PLAYFUL / CARTOONISH EDTECH STYLES (HOWARD LE + DUOLINGO AESTHETIC)
+   ========================================================================== */
+
+@keyframes cuteFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes cuteBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes playfulWiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+}
+
+.animate-cute-float {
+  animation: cuteFloat 3.5s ease-in-out infinite;
+}
+
+.animate-cute-bounce {
+  animation: cuteBounce 2.5s ease-in-out infinite;
+}
+
+.animate-wiggle-hover:hover {
+  animation: playfulWiggle 0.4s ease-in-out infinite;
+}
+
+/* Tactile 3D Buttons (Chunky, Fun, Satisfying Click) */
+.btn-playful-primary {
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 0 #1d4ed8;
+}
+
+.btn-playful-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #1d4ed8;
+}
+
+.btn-playful-primary:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #1d4ed8;
+}
+
+.btn-playful-amber {
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 0 #b45309;
+}
+
+.btn-playful-amber:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #b45309;
+}
+
+.btn-playful-amber:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #b45309;
+}
+
+.btn-playful-white {
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 0 #cbd5e1;
+}
+
+.btn-playful-white:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #cbd5e1;
+}
+
+.btn-playful-white:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #cbd5e1;
+}
+
+/* Playful Educational Card Transitions */
+.playful-card {
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.playful-card:hover {
+  transform: translateY(-6px) scale(1.02);
+}
+
