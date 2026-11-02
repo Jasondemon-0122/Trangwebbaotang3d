@@ -437,11 +437,21 @@ export default function App() {
   const controlsRef = useRef<any>(null);
   const holoControlsRef = useRef<any>(null);
 
-  // 💬 TƯƠNG TÁC & BÌNH LUẬN HỌC SINH (STUDENT INTERACTION & MODERATION)
+  // Tiện ích lọc bỏ toàn bộ dữ liệu mẫu / demo cũ nếu còn sót lại trong trình duyệt
+  const isDemoComment = (c: any) => !c || !c.id || /^cmt-[0-9]{1,3}$/.test(c.id);
+  const isDemoReaction = (r: any) => !r || !r.id || /^react-[0-9]{1,3}$/.test(r.id);
+
+  // 💬 TƯƠNG TÁC & BÌNH LUẬN HỌC SINH (CHỈ SỬ DỤNG DỮ LIỆU THẬT TỪ SUPABASE & USER)
   const [comments, setComments] = useState<StudentComment[]>(() => {
     try {
       const saved = localStorage.getItem('heritage_student_comments');
-      return saved ? JSON.parse(saved) : INITIAL_STUDENT_COMMENTS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(c => !isDemoComment(c));
+        }
+      }
+      return INITIAL_STUDENT_COMMENTS;
     } catch {
       return INITIAL_STUDENT_COMMENTS;
     }
@@ -450,7 +460,13 @@ export default function App() {
   const [reactions, setReactions] = useState<StudentReaction[]>(() => {
     try {
       const saved = localStorage.getItem('heritage_student_reactions');
-      return saved ? JSON.parse(saved) : INITIAL_STUDENT_REACTIONS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(r => !isDemoReaction(r));
+        }
+      }
+      return INITIAL_STUDENT_REACTIONS;
     } catch {
       return INITIAL_STUDENT_REACTIONS;
     }
@@ -562,9 +578,13 @@ export default function App() {
   };
 
   // Thả Reaction (Đã hiểu / Chưa hiểu / Thú vị) trên từng thành tựu
-  const handleToggleReaction = (specId: string, specTitle: string, type: 'understood' | 'confused' | 'fascinated') => {
+  const handleToggleReaction = async (specId: string, specTitle: string, type: 'understood' | 'confused' | 'fascinated') => {
     const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
     const currentStudentClass = currentUser?.user_metadata?.class_name || studentClass.trim() || '10A';
+
+    let toInsert: StudentReaction | null = null;
+    let toDeleteId: string | null = null;
+    let oppositeTypeToDelete: string | null = null;
 
     setReactions(prev => {
       const existingSame = prev.findIndex(
@@ -572,8 +592,12 @@ export default function App() {
       );
 
       if (existingSame >= 0) {
+        toDeleteId = prev[existingSame].id;
         return prev.filter((_, idx) => idx !== existingSame);
       } else {
+        if (type === 'understood') oppositeTypeToDelete = 'confused';
+        if (type === 'confused') oppositeTypeToDelete = 'understood';
+
         const cleaned = prev.filter(
           r => !(r.lessonId === activeMonu.id && r.specId === specId && r.studentName === currentStudentName && (
             (type === 'understood' && r.type === 'confused') ||
@@ -593,40 +617,117 @@ export default function App() {
           type,
           createdAt: new Date().toISOString()
         };
+        toInsert = newReaction;
         return [...cleaned, newReaction];
       }
     });
+
+    try {
+      if (toDeleteId) {
+        await supabase.from('student_reactions').delete().eq('id', toDeleteId);
+      }
+      if (toInsert) {
+        if (oppositeTypeToDelete) {
+          await supabase.from('student_reactions').delete()
+            .eq('lessonId', activeMonu.id)
+            .eq('specId', specId)
+            .eq('studentName', currentStudentName)
+            .eq('type', oppositeTypeToDelete);
+        }
+        await supabase.from('student_reactions').insert([toInsert]);
+      }
+    } catch (e) {
+      console.warn('Lỗi đồng bộ phản hồi với Supabase:', e);
+    }
   };
 
   // CMS: Ẩn / Hiện bình luận
-  const handleToggleHideComment = (commentId: string) => {
+  const handleToggleHideComment = async (commentId: string) => {
+    let targetStatus: 'active' | 'hidden' = 'active';
     setComments(prev => prev.map(c => {
       if (c.id !== commentId) return c;
-      return { ...c, status: c.status === 'hidden' ? 'active' : 'hidden' };
+      targetStatus = c.status === 'hidden' ? 'active' : 'hidden';
+      return { ...c, status: targetStatus };
     }));
+    try {
+      await supabase.from('student_comments').update({ status: targetStatus }).eq('id', commentId);
+    } catch {}
   };
 
   // CMS: Xóa vĩnh viễn bình luận
-  const handleDeleteComment = (commentId: string) => {
+  const handleDeleteComment = async (commentId: string) => {
     if (window.confirm('Thầy cô có chắc chắn muốn xóa vĩnh viễn bình luận này?')) {
       setComments(prev => prev.filter(c => c.id !== commentId));
+      try {
+        await supabase.from('student_comments').delete().eq('id', commentId);
+      } catch {}
     }
   };
 
   // CMS: Giáo viên gửi phản hồi giải đáp
-  const handleSaveTeacherReply = (commentId: string) => {
+  const handleSaveTeacherReply = async (commentId: string) => {
     if (!replyText.trim()) return;
+    const teacherReply = replyText.trim();
+    const teacherRepliedAt = new Date().toISOString();
     setComments(prev => prev.map(c => {
       if (c.id !== commentId) return c;
       return {
         ...c,
-        teacherReply: replyText.trim(),
-        teacherRepliedAt: new Date().toISOString()
+        teacherReply,
+        teacherRepliedAt
       };
     }));
     setReplyingCommentId(null);
     setReplyText('');
+    try {
+      await supabase.from('student_comments').update({ teacherReply, teacherRepliedAt }).eq('id', commentId);
+    } catch {}
   };
+
+  // CMS: Xóa sạch dữ liệu test (reset về 0) để thầy cô dễ dàng kiểm thử từ đầu
+  const handleClearAllTestData = async () => {
+    if (!window.confirm('⚠️ XÁC NHẬN XÓA TOÀN BỘ DỮ LIỆU TEST:\nThao tác này sẽ xóa sạch tất cả bình luận và reaction kiểm thử (cả trên trình duyệt và Supabase) để thầy cô kiểm thử từ đầu với số liệu 0.\n\nThầy cô có chắc chắn muốn xóa không?')) {
+      return;
+    }
+    setComments([]);
+    setReactions([]);
+    try {
+      localStorage.removeItem('heritage_student_comments');
+      localStorage.removeItem('heritage_student_reactions');
+      await supabase.from('student_comments').delete().neq('id', 'keep_none');
+      await supabase.from('student_reactions').delete().neq('id', 'keep_none');
+      alert('✅ Đã xóa toàn bộ dữ liệu kiểm thử về 0!');
+    } catch (e) {
+      console.warn('Lỗi khi xóa bảng supabase:', e);
+      alert('Đã xóa dữ liệu trên trình duyệt về 0!');
+    }
+  };
+
+  // Đồng bộ bình luận và tương tác thật từ Supabase
+  const fetchCloudInteractions = useCallback(async () => {
+    try {
+      const { data: cmtData, error: cmtErr } = await supabase
+        .from('student_comments')
+        .select('*')
+        .order('createdAt', { ascending: false });
+      if (!cmtErr && cmtData && Array.isArray(cmtData)) {
+        const cleaned = cmtData.filter(c => !isDemoComment(c));
+        setComments(cleaned);
+        try { localStorage.setItem('heritage_student_comments', JSON.stringify(cleaned)); } catch {}
+      }
+    } catch {}
+
+    try {
+      const { data: reactData, error: reactErr } = await supabase
+        .from('student_reactions')
+        .select('*');
+      if (!reactErr && reactData && Array.isArray(reactData)) {
+        const cleaned = reactData.filter(r => !isDemoReaction(r));
+        setReactions(cleaned);
+        try { localStorage.setItem('heritage_student_reactions', JSON.stringify(cleaned)); } catch {}
+      }
+    } catch {}
+  }, []);
 
 // 1. Hàm tra cứu Role từ bảng user_roles theo Email (đặt độc lập ở ngoài)
   const determineUserRole = async (email: string | undefined) => {
@@ -713,6 +814,7 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (currentUser) fetchMyPassport(); }, [currentUser]);
+  useEffect(() => { fetchCloudInteractions(); }, [fetchCloudInteractions]);
   useEffect(() => { localStorage.setItem('heritageData', JSON.stringify(monumentsData)); }, [monumentsData]);
 
   useEffect(() => { 
@@ -2172,37 +2274,49 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                               </div>
 
                               {/* Filter and Search Controls */}
-                              <div className="cms-filter-row">
-                                <select
-                                  value={cmsCommentLessonFilter}
-                                  onChange={(e) => setCmsCommentLessonFilter(e.target.value)}
-                                  className="cms-select-control"
-                                >
-                                  <option value="all">Tất cả bài học ({comments.length})</option>
-                                  {monumentsData.map((m: any) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.name} ({comments.filter(c => c.lessonId === m.id).length})
-                                    </option>
-                                  ))}
-                                </select>
+                              <div className="cms-filter-row flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap flex-1">
+                                  <select
+                                    value={cmsCommentLessonFilter}
+                                    onChange={(e) => setCmsCommentLessonFilter(e.target.value)}
+                                    className="cms-select-control"
+                                  >
+                                    <option value="all">Tất cả bài học ({comments.length})</option>
+                                    {monumentsData.map((m: any) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.name} ({comments.filter(c => c.lessonId === m.id).length})
+                                      </option>
+                                    ))}
+                                  </select>
 
-                                <select
-                                  value={cmsCommentStatusFilter}
-                                  onChange={(e) => setCmsCommentStatusFilter(e.target.value as any)}
-                                  className="cms-select-control"
-                                >
-                                  <option value="all">Tất cả trạng thái</option>
-                                  <option value="active">🟢 Đang hiển thị</option>
-                                  <option value="hidden">🚫 Đã ẩn</option>
-                                </select>
+                                  <select
+                                    value={cmsCommentStatusFilter}
+                                    onChange={(e) => setCmsCommentStatusFilter(e.target.value as any)}
+                                    className="cms-select-control"
+                                  >
+                                    <option value="all">Tất cả trạng thái</option>
+                                    <option value="active">🟢 Đang hiển thị</option>
+                                    <option value="hidden">🚫 Đã ẩn</option>
+                                  </select>
 
-                                <input
-                                  type="text"
-                                  value={cmsCommentSearch}
-                                  onChange={(e) => setCmsCommentSearch(e.target.value)}
-                                  placeholder="Tìm theo tên học sinh, lớp hoặc nội dung..."
-                                  className="cms-search-input"
-                                />
+                                  <input
+                                    type="text"
+                                    value={cmsCommentSearch}
+                                    onChange={(e) => setCmsCommentSearch(e.target.value)}
+                                    placeholder="Tìm theo tên học sinh, lớp hoặc nội dung..."
+                                    className="cms-search-input"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={handleClearAllTestData}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
+                                  title="Xóa toàn bộ bình luận và reaction test để bắt đầu kiểm thử từ 0"
+                                >
+                                  <span>🗑️</span>
+                                  <span>Xóa sạch dữ liệu test (Về 0)</span>
+                                </button>
                               </div>
 
                               {/* Comments Management Table / Cards */}
@@ -2348,8 +2462,26 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                     </div>
                                   ))}
 
-                                {comments.length === 0 && (
-                                  <div className="p-8 text-center text-zinc-500">Chưa có bình luận nào từ học sinh.</div>
+                                {comments
+                                  .filter(c => cmsCommentLessonFilter === 'all' || c.lessonId === cmsCommentLessonFilter)
+                                  .filter(c => cmsCommentStatusFilter === 'all' || c.status === cmsCommentStatusFilter)
+                                  .filter(c => {
+                                    if (!cmsCommentSearch.trim()) return true;
+                                    const q = cmsCommentSearch.toLowerCase();
+                                    return (
+                                      c.studentName.toLowerCase().includes(q) ||
+                                      c.studentClass.toLowerCase().includes(q) ||
+                                      c.content.toLowerCase().includes(q) ||
+                                      c.lessonName.toLowerCase().includes(q)
+                                    );
+                                  }).length === 0 && (
+                                  <div className="p-10 text-center bg-zinc-900/40 rounded-2xl border border-dashed border-zinc-800 my-4">
+                                    <div className="text-3xl mb-2">💬</div>
+                                    <div className="font-bold text-white text-sm">Chưa có bình luận nào từ học sinh</div>
+                                    <p className="text-xs text-zinc-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+                                      Hệ thống chỉ lưu và thống kê dữ liệu thật từ tài khoản học sinh. Khi học sinh học bài và gửi thảo luận, dữ liệu sẽ hiển thị tự động tại đây.
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -2360,13 +2492,13 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                           {/* ======================================= */}
                           {activeAdminTab === 'tracking' && (
                             <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                              <div className="cms-tracking-header">
+                              <div className="cms-tracking-header flex items-center justify-between gap-3 flex-wrap">
                                 <div>
-                                  <h3 className="text-base font-bold text-white mb-1">
-                                    📈 BẢNG THEO DÕI MỨC ĐỘ HIỂU BÀI & PHẢN ỨNG CỦA HỌC SINH
+                                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                                    <span>📈</span> BẢNG THEO DÕI MỨC ĐỘ HIỂU BÀI & PHẢN ỨNG CỦA HỌC SINH
                                   </h3>
                                   <p className="text-xs text-zinc-400">
-                                    Dựa trên phản hồi thực tế của học sinh (💡 Đã hiểu, ❓ Chưa hiểu rõ, ❤️ Thú vị) trên từng thành tựu.
+                                    Dữ liệu thực tế 100% từ học sinh (💡 Đã hiểu, ❓ Chưa hiểu rõ, ❤️ Thú vị) trên từng thành tựu.
                                   </p>
                                 </div>
 
@@ -2386,6 +2518,16 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                       );
                                     })}
                                   </select>
+
+                                  <button
+                                    type="button"
+                                    onClick={handleClearAllTestData}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer ml-2"
+                                    title="Xóa toàn bộ dữ liệu phản hồi test để ma trận về 0"
+                                  >
+                                    <span>🗑️</span>
+                                    <span>Xóa sạch dữ liệu test</span>
+                                  </button>
                                 </div>
                               </div>
 
