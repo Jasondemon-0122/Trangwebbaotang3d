@@ -279,11 +279,15 @@ body.light-mode .viewport-header-title .topic-badge {
   display: flex;
   align-items: center;
   max-width: 100%;
+  position: relative;
+  overflow: visible !important;
+  z-index: 30;
 }
 
 .group-tab-container {
   position: relative;
   display: inline-flex;
+  align-items: center;
 }
 
 .view-mode-tabs { 
@@ -299,14 +303,17 @@ body.light-mode .viewport-header-title .topic-badge {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25); 
   pointer-events: auto; 
   max-width: 100%;
-  overflow-x: auto;
+  overflow: visible !important; /* CRITICAL: Không dùng overflow-x: auto để không cắt dropdown */
+  position: relative;
+  z-index: 30;
 }
 body.light-mode .view-mode-tabs {
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 .view-mode-tabs::-webkit-scrollbar { display: none; }
-.view-mode-tabs button { 
+.view-mode-tabs > button,
+.view-mode-tabs > .group-tab-container > button { 
   font-family: 'Inter', sans-serif; 
   padding: 6px 14px; 
   border: 1px solid transparent; 
@@ -319,21 +326,207 @@ body.light-mode .view-mode-tabs {
   transition: all 0.2s ease; 
   white-space: nowrap;
 }
-.view-mode-tabs button:hover { 
+.view-mode-tabs > button:hover,
+.view-mode-tabs > .group-tab-container > button:hover { 
   color: var(--text-main); 
   background: rgba(255, 255, 255, 0.05);
 }
-body.light-mode .view-mode-tabs button:hover {
+body.light-mode .view-mode-tabs > button:hover,
+body.light-mode .view-mode-tabs > .group-tab-container > button:hover { 
   background: rgba(0, 0, 0, 0.05);
 }
-.view-mode-tabs button.active { 
+.view-mode-tabs > button.active,
+.view-mode-tabs > .group-tab-container > button.active { 
   background: #ffffff; 
   color: #09090b; 
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); 
 }
-body.light-mode .view-mode-tabs button.active {
+body.light-mode .view-mode-tabs > button.active,
+body.light-mode .view-mode-tabs > .group-tab-container > button.active { 
   background: #09090b;
   color: #ffffff;
+}
+
+/* ==========================================================================
+   DROPDOWN MENU CHO NHÓM AR & NHÓM TRÒ CHƠI (TASTE-SKILL & HOWARD LE STYLE)
+   ========================================================================== */
+.group-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: rgba(18, 18, 24, 0.96) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  z-index: 1000 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: auto !important;
+  animation: dropdownFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.light-mode .group-dropdown-menu {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Các nút bấm bên trong dropdown - Đảm bảo chuẩn click và thiết kế không bị đè style */
+.view-mode-tabs .group-dropdown-menu .dropdown-item-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  text-align: left !important;
+  white-space: normal !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: none !important;
+  color: var(--text-main) !important;
+  margin: 0 !important;
+}
+
+.view-mode-tabs .group-dropdown-menu .dropdown-item-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.light-mode .view-mode-tabs .group-dropdown-menu .dropdown-item-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.view-mode-tabs .group-dropdown-menu .dropdown-item-btn.active-submode {
+  background: rgba(6, 182, 212, 0.15) !important;
+  border-color: rgba(6, 182, 212, 0.35) !important;
+}
+
+body.light-mode .view-mode-tabs .group-dropdown-menu .dropdown-item-btn.active-submode {
+  background: rgba(2, 132, 199, 0.1) !important;
+  border-color: rgba(2, 132, 199, 0.3) !important;
+}
+
+.dropdown-item-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.light-mode .dropdown-item-icon {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.dropdown-item-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.active-dot {
+  font-size: 10px;
+  color: #06b6d4;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   SUBMODE PILL BAR (THANH CHỌN NHANH DƯỚI HEADER CHO AR VÀ TRÒ CHƠI)
+   ========================================================================== */
+.submode-pill-bar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(12, 12, 16, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 25;
+  max-width: 92%;
+  overflow-x: auto;
+  pointer-events: auto;
+}
+
+body.light-mode .submode-pill-bar {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.submode-pill {
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.submode-pill:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body.light-mode .submode-pill:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.submode-pill.active {
+  background: #06b6d4;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
 }
 
 .canvas-wrapper { flex: 1; min-height: 400px; display: flex; position: relative; }
@@ -913,18 +1106,34 @@ body.light-mode .landing-wrapper {
   .view-mode-tabs {
     display: flex;
     gap: 6px;
-    overflow-x: auto;
+    overflow: visible !important;
+    flex-wrap: wrap;
+    justify-content: center;
     white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
     padding-bottom: 4px;
     scrollbar-width: none;
     max-width: 100%;
   }
   .view-mode-tabs::-webkit-scrollbar { display: none; }
-  .view-mode-tabs button {
+  .view-mode-tabs > button,
+  .view-mode-tabs > .group-tab-container > button {
     flex-shrink: 0;
     font-size: 11.5px;
     padding: 6px 12px;
+  }
+  .group-dropdown-menu {
+    right: 0;
+    left: auto;
+    max-width: 90vw;
+  }
+  .submode-pill-bar {
+    top: 8px;
+    max-width: 96%;
+    padding: 3px 6px;
+  }
+  .submode-pill {
+    font-size: 10.5px;
+    padding: 4px 10px;
   }
   .cas-sidebar-right { 
     order: 2; /* Kiến thức, thông số & âm thanh bài học ngay dưới mô hình */

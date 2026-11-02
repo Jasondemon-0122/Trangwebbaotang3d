@@ -214,17 +214,23 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [arDropdownOpen, setArDropdownOpen] = useState(false);
   const [gameDropdownOpen, setGameDropdownOpen] = useState(false);
+  const arDropdownRef = useRef<HTMLDivElement>(null);
+  const gameDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.group-tab-container')) {
-        setArDropdownOpen(false);
-        setGameDropdownOpen(false);
-      }
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      const clickedInsideAr = arDropdownRef.current && arDropdownRef.current.contains(target);
+      const clickedInsideGame = gameDropdownRef.current && gameDropdownRef.current.contains(target);
+      if (!clickedInsideAr) setArDropdownOpen(false);
+      if (!clickedInsideGame) setGameDropdownOpen(false);
     };
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
   }, []);
   
   const [activeRegion, setActiveRegion] = useState<'world' | 'vietnam'>('world');
@@ -2172,109 +2178,136 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       )}
 
                       {/* Tab 4: Nhóm Không gian AR (Gom AR vào 1 nhóm trên thanh tab) */}
-                      <div className="relative group-tab-container">
+                      <div className="relative group-tab-container" ref={arDropdownRef}>
                         <button 
                           type="button"
                           className={`cursor-pointer ${((viewMode as string) === 'ar' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? 'active' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setArDropdownOpen(!arDropdownOpen);
+                            const isArActive = (viewMode as string) === 'ar' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand';
+                            if (!isArActive) {
+                              const defaultMode = currentMainModelPath ? 'ar' : 'mask';
+                              setViewMode(defaultMode as any);
+                            }
+                            setArDropdownOpen(prev => !prev);
                             setGameDropdownOpen(false);
                           }}
-                          title="Không gian AR & Thực tế ảo"
+                          title="Không gian AR & Thực tế ảo (Nhấp để mở & chọn chế độ)"
                         >
                           <span>
                             {(viewMode as string) === 'ar' ? '📱 Xem AR' : (viewMode as string) === 'mask' ? '🎭 Mặt Nạ AR' : (viewMode as string) === 'hand' ? '🖐️ Cổ Vật' : '📱 Không gian AR'}
                           </span>
-                          <span className={`text-[9px] transition-transform ${arDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                          <span className={`text-[9px] transition-transform ml-1 inline-block ${arDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                         </button>
 
                         {/* Dropdown Menu AR */}
                         {arDropdownOpen && (
-                          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-zinc-900/95 dark:bg-zinc-900/95 bg-white/95 backdrop-blur-xl border border-white/10 dark:border-white/10 border-zinc-200 shadow-2xl p-1.5 z-50 flex flex-col gap-1">
+                          <div className="group-dropdown-menu">
                             {currentMainModelPath && (
                               <button
                                 type="button"
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                  (viewMode as string) === 'ar' 
-                                    ? 'bg-cyan-500/20 text-cyan-300' 
-                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                                }`}
-                                onClick={() => { setViewMode('ar'); setArDropdownOpen(false); }}
+                                className={`dropdown-item-btn ${(viewMode as string) === 'ar' ? 'active-submode' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewMode('ar');
+                                  setArDropdownOpen(false);
+                                }}
                               >
-                                <span>📱</span>
-                                <div>
-                                  <div className="font-bold">Xem AR trên bàn</div>
-                                  <div className="text-[10px] text-zinc-400">Chiếu mô hình 3D thực tế</div>
+                                <span className="dropdown-item-icon">📱</span>
+                                <div className="dropdown-item-text">
+                                  <div className="dropdown-item-title">Xem AR trên bàn</div>
+                                  <div className="dropdown-item-desc">Chiếu mô hình 3D thực tế</div>
                                 </div>
+                                {(viewMode as string) === 'ar' && <span className="active-dot">●</span>}
                               </button>
                             )}
 
                             <button
                               type="button"
-                              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                (viewMode as string) === 'mask' 
-                                  ? 'bg-pink-500/20 text-pink-300' 
-                                  : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                              }`}
-                              onClick={() => { setViewMode('mask'); setArDropdownOpen(false); }}
+                              className={`dropdown-item-btn ${(viewMode as string) === 'mask' ? 'active-submode' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewMode('mask');
+                                setArDropdownOpen(false);
+                              }}
                             >
-                              <span>🎭</span>
-                              <div>
-                                <div className="font-bold">Mặt Nạ Hóa Thân AR</div>
-                                <div className="text-[10px] text-zinc-400">Đeo mặt nạ & nghe audio</div>
+                              <span className="dropdown-item-icon">🎭</span>
+                              <div className="dropdown-item-text">
+                                <div className="dropdown-item-title">Mặt Nạ Hóa Thân AR</div>
+                                <div className="dropdown-item-desc">Đeo mặt nạ & nghe audio</div>
                               </div>
+                              {(viewMode as string) === 'mask' && <span className="active-dot">●</span>}
                             </button>
 
                             <button
                               type="button"
-                              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                (viewMode as string) === 'hand' 
-                                  ? 'bg-amber-500/20 text-amber-300' 
-                                  : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                              }`}
-                              onClick={() => { setViewMode('hand'); setActiveHandIndex(null); setArDropdownOpen(false); }}
+                              className={`dropdown-item-btn ${(viewMode as string) === 'hand' ? 'active-submode' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewMode('hand');
+                                setActiveHandIndex(null);
+                                setArDropdownOpen(false);
+                              }}
                             >
-                              <span>🖐️</span>
-                              <div>
-                                <div className="font-bold">Cổ Vật Cầm Tay 3D</div>
-                                <div className="text-[10px] text-zinc-400">Tương tác cầm nắm cổ vật</div>
+                              <span className="dropdown-item-icon">🖐️</span>
+                              <div className="dropdown-item-text">
+                                <div className="dropdown-item-title">Cổ Vật Cầm Tay 3D</div>
+                                <div className="dropdown-item-desc">Tương tác cầm nắm cổ vật</div>
                               </div>
+                              {(viewMode as string) === 'hand' && <span className="active-dot">●</span>}
                             </button>
                           </div>
                         )}
                       </div>
 
                       {/* Tab 5: Nhóm Trò chơi & Ô chữ (Gom trò chơi, danh nhân và ô chữ vào 1 nhóm trên thanh tab) */}
-                      <div className="relative group-tab-container">
+                      <div className="relative group-tab-container" ref={gameDropdownRef}>
                         <button 
                           type="button"
                           className={`cursor-pointer ${((viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc') ? 'active' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setGameDropdownOpen(!gameDropdownOpen);
+                            const isGameActive = (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc';
+                            if (!isGameActive) {
+                              if (activeMonu.gameData && activeMonu.gameData.length > 0) {
+                                setViewMode('game');
+                                setSelectedRowIndex(null);
+                                setGameInput('');
+                                setGameFeedback('idle');
+                                setWrongCount(0);
+                                setShowExplanation(false);
+                                setShowRewardModal(false);
+                                setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' })));
+                              } else if (activeMonu.hexGameData && activeMonu.hexGameData.length > 0) {
+                                setViewMode('hex');
+                                setShowHexSubmit(false);
+                                setHexReasoning('');
+                              } else if (activeMonu.npcDialog && activeMonu.npcDialog.length > 0) {
+                                setViewMode('npc');
+                                setNpcStep(0);
+                                setNpcFeedback(null);
+                              }
+                            }
+                            setGameDropdownOpen(prev => !prev);
                             setArDropdownOpen(false);
                           }}
-                          title="Trò chơi ôn tập & Hỏi đáp lịch sử"
+                          title="Trò chơi ôn tập & Hỏi đáp lịch sử (Nhấp để mở & chọn trò chơi)"
                         >
                           <span>
                             {(viewMode as string) === 'game' ? '🎮 Ô chữ' : (viewMode as string) === 'hex' ? '🧠 Lục giác' : (viewMode as string) === 'npc' ? '💬 Danh Nhân' : '🎮 Trò chơi & Ô chữ'}
                           </span>
-                          <span className={`text-[9px] transition-transform ${gameDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                          <span className={`text-[9px] transition-transform ml-1 inline-block ${gameDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                         </button>
 
                         {/* Dropdown Menu Trò Chơi */}
                         {gameDropdownOpen && (
-                          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-zinc-900/95 dark:bg-zinc-900/95 bg-white/95 backdrop-blur-xl border border-white/10 dark:border-white/10 border-zinc-200 shadow-2xl p-1.5 z-50 flex flex-col gap-1">
+                          <div className="group-dropdown-menu">
                             {activeMonu.gameData && activeMonu.gameData.length > 0 && (
                               <button
                                 type="button"
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                  (viewMode as string) === 'game' 
-                                    ? 'bg-purple-500/20 text-purple-300' 
-                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                                }`}
-                                onClick={() => {
+                                className={`dropdown-item-btn ${(viewMode as string) === 'game' ? 'active-submode' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setViewMode('game');
                                   setSelectedRowIndex(null);
                                   setGameInput('');
@@ -2286,57 +2319,54 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                   setGameDropdownOpen(false);
                                 }}
                               >
-                                <span>🎮</span>
-                                <div>
-                                  <div className="font-bold">Ma Trận Ô Chữ</div>
-                                  <div className="text-[10px] text-zinc-400">Giải mã từ khóa lịch sử</div>
+                                <span className="dropdown-item-icon">🎮</span>
+                                <div className="dropdown-item-text">
+                                  <div className="dropdown-item-title">Ma Trận Ô Chữ</div>
+                                  <div className="dropdown-item-desc">Giải mã từ khóa lịch sử</div>
                                 </div>
+                                {(viewMode as string) === 'game' && <span className="active-dot">●</span>}
                               </button>
                             )}
 
                             {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && (
                               <button
                                 type="button"
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                  (viewMode as string) === 'hex' 
-                                    ? 'bg-blue-500/20 text-blue-300' 
-                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                                }`}
-                                onClick={() => {
+                                className={`dropdown-item-btn ${(viewMode as string) === 'hex' ? 'active-submode' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setViewMode('hex');
                                   setShowHexSubmit(false);
                                   setHexReasoning('');
                                   setGameDropdownOpen(false);
                                 }}
                               >
-                                <span>🧠</span>
-                                <div>
-                                  <div className="font-bold">Sơ Đồ Lục Giác</div>
-                                  <div className="text-[10px] text-zinc-400">Kết nối tư duy liên hệ</div>
+                                <span className="dropdown-item-icon">🧠</span>
+                                <div className="dropdown-item-text">
+                                  <div className="dropdown-item-title">Sơ Đồ Lục Giác</div>
+                                  <div className="dropdown-item-desc">Kết nối tư duy liên hệ</div>
                                 </div>
+                                {(viewMode as string) === 'hex' && <span className="active-dot">●</span>}
                               </button>
                             )}
 
                             {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && (
                               <button
                                 type="button"
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                                  (viewMode as string) === 'npc' 
-                                    ? 'bg-emerald-500/20 text-emerald-300' 
-                                    : 'text-zinc-300 dark:text-zinc-300 text-zinc-700 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-zinc-100'
-                                }`}
-                                onClick={() => {
+                                className={`dropdown-item-btn ${(viewMode as string) === 'npc' ? 'active-submode' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setViewMode('npc');
                                   setNpcStep(0);
                                   setNpcFeedback(null);
                                   setGameDropdownOpen(false);
                                 }}
                               >
-                                <span>💬</span>
-                                <div>
-                                  <div className="font-bold">Đối Thoại Danh Nhân</div>
-                                  <div className="text-[10px] text-zinc-400">Hỏi đáp nhân vật lịch sử</div>
+                                <span className="dropdown-item-icon">💬</span>
+                                <div className="dropdown-item-text">
+                                  <div className="dropdown-item-title">Đối Thoại Danh Nhân</div>
+                                  <div className="dropdown-item-desc">Hỏi đáp nhân vật lịch sử</div>
                                 </div>
+                                {(viewMode as string) === 'npc' && <span className="active-dot">●</span>}
                               </button>
                             )}
                           </div>
@@ -2348,6 +2378,85 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
               )}
 
               <div className="canvas-wrapper" style={((viewMode as string) === 'ar' || (viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') ? { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '420px', position: 'relative', overflow: 'hidden' } : { position: 'relative', flex: 1 }}>
+
+                {/* Thanh chọn nhanh phân nhóm AR (Sub-mode pill bar cho trải nghiệm trực quan) */}
+                {((viewMode as string) === 'ar' || (viewMode as string) === 'mask' || (viewMode as string) === 'hand') && (
+                  <div className="submode-pill-bar">
+                    {currentMainModelPath && (
+                      <button 
+                        type="button"
+                        className={`submode-pill ${(viewMode as string) === 'ar' ? 'active' : ''}`}
+                        onClick={() => setViewMode('ar')}
+                      >
+                        📱 Xem AR trên bàn
+                      </button>
+                    )}
+                    <button 
+                      type="button"
+                      className={`submode-pill ${(viewMode as string) === 'mask' ? 'active' : ''}`}
+                      onClick={() => setViewMode('mask')}
+                    >
+                      🎭 Mặt Nạ AR
+                    </button>
+                    <button 
+                      type="button"
+                      className={`submode-pill ${(viewMode as string) === 'hand' ? 'active' : ''}`}
+                      onClick={() => { setViewMode('hand'); setActiveHandIndex(null); }}
+                    >
+                      🖐️ Cổ Vật 3D
+                    </button>
+                  </div>
+                )}
+
+                {/* Thanh chọn nhanh phân nhóm Trò chơi (Sub-mode pill bar) */}
+                {((viewMode as string) === 'game' || (viewMode as string) === 'hex' || (viewMode as string) === 'npc') && (
+                  <div className="submode-pill-bar">
+                    {activeMonu.gameData && activeMonu.gameData.length > 0 && (
+                      <button 
+                        type="button"
+                        className={`submode-pill ${(viewMode as string) === 'game' ? 'active' : ''}`}
+                        onClick={() => {
+                          setViewMode('game');
+                          setSelectedRowIndex(null);
+                          setGameInput('');
+                          setGameFeedback('idle');
+                          setWrongCount(0);
+                          setShowExplanation(false);
+                          setShowRewardModal(false);
+                          setRowStates(activeMonu.gameData.map(() => ({ solved: false, skipped: false, guess: '' })));
+                        }}
+                      >
+                        🎮 Ma Trận Ô Chữ
+                      </button>
+                    )}
+                    {activeMonu.hexGameData && activeMonu.hexGameData.length > 0 && (
+                      <button 
+                        type="button"
+                        className={`submode-pill ${(viewMode as string) === 'hex' ? 'active' : ''}`}
+                        onClick={() => {
+                          setViewMode('hex');
+                          setShowHexSubmit(false);
+                          setHexReasoning('');
+                        }}
+                      >
+                        🧠 Sơ Đồ Lục Giác
+                      </button>
+                    )}
+                    {activeMonu.npcDialog && activeMonu.npcDialog.length > 0 && (
+                      <button 
+                        type="button"
+                        className={`submode-pill ${(viewMode as string) === 'npc' ? 'active' : ''}`}
+                        onClick={() => {
+                          setViewMode('npc');
+                          setNpcStep(0);
+                          setNpcFeedback(null);
+                        }}
+                      >
+                        💬 Đối Thoại Danh Nhân
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Floating Turntable Controls (Gọn gàng, không cản trở tầm nhìn mô hình) */}
                 {viewMode !== 'game' && viewMode !== 'hex' && viewMode !== 'ar' && viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && !isSketchfab(currentMainModelPath) && (
