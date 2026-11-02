@@ -30,3 +30,4 @@ export interface StudentReaction {
   type: 'understood' | 'confused' | 'fascinated';
   createdAt: string;
 }
+

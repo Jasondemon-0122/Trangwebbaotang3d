@@ -2345,87 +2345,60 @@ body.light-mode .comment-composer-card {
 }
 
 .composer-avatar-badge {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 17px;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+.composer-avatar-badge:hover {
+  transform: scale(1.12);
+  background: rgba(255, 255, 255, 0.16);
 }
 body.light-mode .composer-avatar-badge {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.1);
 }
+body.light-mode .composer-avatar-badge:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
 
 .composer-user-name {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-main);
   line-height: 1.2;
 }
 
 .composer-user-class {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
 }
 
-.avatar-quick-picker {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.avatar-pill-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-body.light-mode .avatar-pill-btn {
-  background: rgba(0, 0, 0, 0.04);
-}
-.avatar-pill-btn:hover {
-  transform: scale(1.15);
-  background: rgba(255, 255, 255, 0.12);
-}
-.avatar-pill-btn.selected {
-  border-color: #06b6d4;
-  background: rgba(6, 182, 212, 0.2);
-  transform: scale(1.1);
-}
-
-.composer-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .composer-spec-select {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 5px 8px;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-main);
   outline: none;
   cursor: pointer;
   font-family: 'Inter', sans-serif;
+  max-width: 170px;
 }
 body.light-mode .composer-spec-select {
   background: #ffffff;
   color: #09090b;
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .composer-tags-row {
@@ -2547,7 +2520,13 @@ body.light-mode .comment-success-alert {
   gap: 4px;
   overflow-x: auto;
   padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.comments-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
 .comment-filter-btn {
   padding: 4px 10px;
   border-radius: 999px;
@@ -2585,6 +2564,24 @@ body.light-mode .comment-filter-btn.active {
   gap: 10px;
   overflow-y: auto;
   flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+body.light-mode .comments-feed-list {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+.comments-feed-list::-webkit-scrollbar {
+  width: 4px;
+}
+.comments-feed-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.comments-feed-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+body.light-mode .comments-feed-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .comment-item-card {
@@ -2973,5 +2970,81 @@ body.light-mode .teacher-badge {
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* ==========================================================================
+   HIGH CONTRAST & DARK/LIGHT MODE LEGIBILITY (TASTE-SKILL ENFORCEMENT)
+   ========================================================================== */
+body.dark-mode .notes-panel p,
+body.dark-mode .spec-paragraph,
+body.dark-mode .comment-body-text,
+body.dark-mode .modal-desc {
+  color: #f4f4f5 !important;
+}
+
+body.dark-mode .spec-title {
+  color: #a1a1aa !important;
+}
+
+body.dark-mode .spec-summary {
+  color: #ffffff !important;
+}
+
+body.dark-mode .comment-author-name {
+  color: #ffffff !important;
+}
+
+body.dark-mode .comment-author-class {
+  color: #cbd5e1 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.dark-mode .comment-meta-time {
+  color: #a1a1aa !important;
+}
+
+body.dark-mode .modal-sidebar {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .modal-sidebar h3 {
+  color: #94a3b8;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+body.light-mode .notes-panel p,
+body.light-mode .spec-paragraph,
+body.light-mode .comment-body-text,
+body.light-mode .modal-desc {
+  color: #18181b !important;
+}
+
+body.light-mode .spec-title {
+  color: #71717a !important;
+}
+
+body.light-mode .spec-summary {
+  color: #09090b !important;
+}
+
+body.light-mode .comment-author-name {
+  color: #09090b !important;
+}
+
+body.light-mode .modal-sidebar {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+body.light-mode .modal-sidebar h3 {
+  color: #334155;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .modal-reaction-card {
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+}
+
 
 

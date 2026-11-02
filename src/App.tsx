@@ -3581,14 +3581,14 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                     className={`sidebar-tab-btn ${sidebarRightTab === 'specs' ? 'active' : ''}`}
                     onClick={() => setSidebarRightTab('specs')}
                   >
-                    📜 Kiến thức & Thành tựu
+                    📜 Kiến thức
                   </button>
                   <button 
                     type="button" 
                     className={`sidebar-tab-btn ${sidebarRightTab === 'comments' ? 'active' : ''}`}
                     onClick={() => setSidebarRightTab('comments')}
                   >
-                    <span>💬 Thảo luận học sinh</span>
+                    <span>💬 Thảo luận</span>
                     {comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').length > 0 && (
                       <span className="comment-badge-count">
                         {comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').length}
@@ -3665,47 +3665,50 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                 <div className="expand-icon">{isExpanded ? '✕' : '+'}</div>
                               </div>
 
-                              {/* Interactive Reactions on Achievement (💡 Đã hiểu | ❓ Chưa hiểu | ❤️ Thú vị) */}
-                              <div className="spec-reactions-row" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  type="button"
-                                  className={`reaction-chip ${hasUnderstood ? 'active-understood' : ''}`}
-                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'understood')}
-                                  title="Em đã hiểu rõ thành tựu này"
-                                >
-                                  <span>💡 Đã hiểu</span>
-                                  {specUnderstood > 0 && <span className="chip-count">{specUnderstood}</span>}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className={`reaction-chip ${hasConfused ? 'active-confused' : ''}`}
-                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'confused')}
-                                  title="Em chưa hiểu rõ / Cần giải thích thêm"
-                                >
-                                  <span>❓ Chưa hiểu</span>
-                                  {specConfused > 0 && <span className="chip-count chip-confused">{specConfused}</span>}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className={`reaction-chip ${hasFascinated ? 'active-fascinated' : ''}`}
-                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'fascinated')}
-                                  title="Thành tựu này rất thú vị"
-                                >
-                                  <span>❤️ Thú vị</span>
-                                  {specFascinated > 0 && <span className="chip-count">{specFascinated}</span>}
-                                </button>
-                              </div>
-
+                              {/* CHỈ HIỆN KHI MỞ RỘNG (EXPANDED): Học sinh tương tác đọc chi tiết thì mới hiện cụm react */}
                               {isExpanded && (
-                                <div className="spec-full-text">
-                                  {spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? (
-                                    <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} />
-                                  ) : (
-                                    <p key={index} className="spec-paragraph">{paragraph}</p>
-                                  ))}
-                                </div>
+                                <>
+                                  <div className="spec-full-text">
+                                    {spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? (
+                                      <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} />
+                                    ) : (
+                                      <p key={index} className="spec-paragraph">{paragraph}</p>
+                                    ))}
+                                  </div>
+
+                                  {/* Interactive Reactions on Achievement (💡 Đã hiểu | ❓ Chưa hiểu | ❤️ Thú vị) */}
+                                  <div className="spec-reactions-row" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      className={`reaction-chip ${hasUnderstood ? 'active-understood' : ''}`}
+                                      onClick={() => handleToggleReaction(spec.id, spec.title, 'understood')}
+                                      title="Em đã hiểu rõ thành tựu này"
+                                    >
+                                      <span>💡 Đã hiểu</span>
+                                      {specUnderstood > 0 && <span className="chip-count">{specUnderstood}</span>}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      className={`reaction-chip ${hasConfused ? 'active-confused' : ''}`}
+                                      onClick={() => handleToggleReaction(spec.id, spec.title, 'confused')}
+                                      title="Em chưa hiểu rõ / Cần giải thích thêm"
+                                    >
+                                      <span>❓ Chưa hiểu</span>
+                                      {specConfused > 0 && <span className="chip-count chip-confused">{specConfused}</span>}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      className={`reaction-chip ${hasFascinated ? 'active-fascinated' : ''}`}
+                                      onClick={() => handleToggleReaction(spec.id, spec.title, 'fascinated')}
+                                      title="Thành tựu này rất thú vị"
+                                    >
+                                      <span>❤️ Thú vị</span>
+                                      {specFascinated > 0 && <span className="chip-count">{specFascinated}</span>}
+                                    </button>
+                                  </div>
+                                </>
                               )}
                             </div>
                           );
@@ -3720,7 +3723,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                         {role === 'admin' && (selectedMeshName === '' || (activeMonu.meshData && activeMonu.meshData[selectedMeshName])) ? (
                           <textarea className="admin-textarea" value={currentInfo.historyNotes} onChange={(e) => handleUpdateNotes(e.target.value)} placeholder="Nhập ghi chú hoặc tư liệu lịch sử mở rộng..." />
                         ) : (
-                          <p className="spec-paragraph" style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6' }}>{currentInfo.historyNotes || 'Chưa có ghi chú bổ sung.'}</p>
+                          <p className="spec-paragraph" style={{ fontSize: '13px', lineHeight: '1.6' }}>{currentInfo.historyNotes || 'Chưa có ghi chú bổ sung.'}</p>
                         )}
                       </div>
                     )}
@@ -3728,46 +3731,39 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                 ) : (
                   /* 💬 PHẦN BÌNH LUẬN & THẢO LUẬN CỦA HỌC SINH */
                   <div className="student-comments-panel animate-fade-in">
-                    {/* Hộp soạn thảo bình luận */}
+                    {/* Hộp soạn thảo bình luận tinh gọn (1-2 bước thao tác) */}
                     <div className="comment-composer-card">
                       <div className="composer-header">
                         <div className="composer-user-info">
-                          <div className="composer-avatar-badge" title="Avatar học sinh của em">
+                          <button
+                            type="button"
+                            className="composer-avatar-badge"
+                            title="Bấm để đổi Avatar ngộ nghĩnh"
+                            onClick={() => {
+                              const curAvt = currentUser?.user_metadata?.avatar || selectedAvatar;
+                              const idx = AVATAR_LIST.indexOf(curAvt);
+                              const nextIdx = (idx + 1) % AVATAR_LIST.length;
+                              setSelectedAvatar(AVATAR_LIST[nextIdx]);
+                            }}
+                          >
                             {currentUser?.user_metadata?.avatar || selectedAvatar}
-                          </div>
+                          </button>
                           <div>
                             <div className="composer-user-name">
                               {currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh'}
                             </div>
                             <div className="composer-user-class">
-                              Lớp: {currentUser?.user_metadata?.class_name || studentClass.trim() || '10A'}
+                              Lớp {currentUser?.user_metadata?.class_name || studentClass.trim() || '10A'}
                             </div>
                           </div>
                         </div>
 
-                        {/* Chọn nhanh avatar */}
-                        <div className="avatar-quick-picker">
-                          {AVATAR_LIST.slice(0, 5).map(avt => (
-                            <button
-                              key={avt}
-                              type="button"
-                              className={`avatar-pill-btn ${(currentUser?.user_metadata?.avatar || selectedAvatar) === avt ? 'selected' : ''}`}
-                              onClick={() => setSelectedAvatar(avt)}
-                              title="Chọn avatar"
-                            >
-                              {avt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Chọn mục thành tựu liên quan */}
-                      <div className="composer-meta-row">
-                        <label className="text-[11px] text-zinc-400 font-medium">Mục liên quan:</label>
+                        {/* Chọn mục thành tựu liên quan (gọn gàng góc phải) */}
                         <select
                           value={newCommentSpecId}
                           onChange={(e) => setNewCommentSpecId(e.target.value)}
                           className="composer-spec-select"
+                          title="Chọn chủ đề thành tựu để thảo luận"
                         >
                           <option value="general">🏛️ Chung về {activeMonu.name}</option>
                           {(currentInfo.specs || []).map((s: any) => (
@@ -3778,13 +3774,12 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                         </select>
                       </div>
 
-                      {/* Chọn loại tương tác (Tags) */}
+                      {/* Chọn loại tương tác (3 tags tinh gọn) */}
                       <div className="composer-tags-row">
                         {[
-                          { key: 'question', label: '💡 Thắc mắc cần hỏi' },
-                          { key: 'unclear', label: '❓ Em chưa hiểu' },
-                          { key: 'impression', label: '✨ Cảm nhận' },
-                          { key: 'connection', label: '🏛️ Liên hệ bài học' }
+                          { key: 'question', label: '💡 Thắc mắc' },
+                          { key: 'unclear', label: '❓ Chưa hiểu' },
+                          { key: 'impression', label: '✨ Cảm nhận' }
                         ].map(t => (
                           <button
                             key={t.key}
@@ -3804,9 +3799,9 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                           setNewCommentText(e.target.value);
                           if (moderationWarning) setModerationWarning(null);
                         }}
-                        placeholder="Em hãy viết thắc mắc, câu hỏi hoặc chia sẻ cảm nhận về thành tựu này..."
+                        placeholder="Em hãy viết thắc mắc hoặc chia sẻ cảm nhận..."
                         className="composer-textarea"
-                        rows={3}
+                        rows={2}
                       />
 
                       {/* Cảnh báo bộ lọc từ ngữ bậy / thô tục */}
@@ -3824,9 +3819,6 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       )}
 
                       <div className="composer-action-row">
-                        <span className="text-[10px] text-zinc-500">
-                          🛡️ Tự động lọc ngôn từ thô tục vì môi trường học tập văn minh
-                        </span>
                         <button
                           type="button"
                           onClick={handlePostComment}
@@ -4203,6 +4195,57 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                       <h3 style={{ marginTop: '0px' }}>Ghi chú tư liệu</h3><textarea className="admin-textarea" style={{ background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px dashed #cbd5e1' }} value={selectedImage.description || ''} onChange={(e) => handleUpdateGalleryItem(selectedImage.id, 'description', e.target.value)} />
                     </div>
                   ) : (<><h3>Ghi chú</h3><p className="modal-desc">{selectedImage.description || 'Chưa có ghi chú.'}</p></>)}
+
+                  {/* PHẢN HỒI / REACT KHI HỌC SINH XEM TƯ LIỆU NÀY */}
+                  {(() => {
+                    const imgStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+                    const imgUnderstood = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.type === 'understood').length;
+                    const imgConfused = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.type === 'confused').length;
+                    const imgFascinated = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.type === 'fascinated').length;
+
+                    const hasUnderstoodImg = reactions.some(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.studentName === imgStudentName && r.type === 'understood');
+                    const hasConfusedImg = reactions.some(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.studentName === imgStudentName && r.type === 'confused');
+                    const hasFascinatedImg = reactions.some(r => r.lessonId === activeMonu.id && r.specId === selectedImage.id && r.studentName === imgStudentName && r.type === 'fascinated');
+
+                    return (
+                      <div className="modal-reaction-card" style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 700 }}>
+                          Em hiểu tư liệu này thế nào?
+                        </div>
+                        <div className="spec-reactions-row" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className={`reaction-chip ${hasUnderstoodImg ? 'active-understood' : ''}`}
+                            onClick={() => handleToggleReaction(selectedImage.id, selectedImage.title || 'Ảnh tư liệu', 'understood')}
+                            title="Em đã hiểu rõ tư liệu này"
+                          >
+                            <span>💡 Đã hiểu</span>
+                            {imgUnderstood > 0 && <span className="chip-count">{imgUnderstood}</span>}
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`reaction-chip ${hasConfusedImg ? 'active-confused' : ''}`}
+                            onClick={() => handleToggleReaction(selectedImage.id, selectedImage.title || 'Ảnh tư liệu', 'confused')}
+                            title="Em cần giải thích thêm"
+                          >
+                            <span>❓ Cần giải thích</span>
+                            {imgConfused > 0 && <span className="chip-count chip-confused">{imgConfused}</span>}
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`reaction-chip ${hasFascinatedImg ? 'active-fascinated' : ''}`}
+                            onClick={() => handleToggleReaction(selectedImage.id, selectedImage.title || 'Ảnh tư liệu', 'fascinated')}
+                            title="Tư liệu này rất thú vị"
+                          >
+                            <span>❤️ Thú vị</span>
+                            {imgFascinated > 0 && <span className="chip-count">{imgFascinated}</span>}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="modal-center-col">
