@@ -101,9 +101,36 @@ export const initialMonumentsData = [
     },
     "gallery": [
       {
-        "url": "https://images.unsplash.com/photo-1539650116574-8efeb43e2b50?auto=format&fit=crop&q=80&w=150",
+        "id": "gal-pyramid-0",
+        "url": "https://images.unsplash.com/photo-1539650116574-8efeb43e2b50?auto=format&fit=crop&q=80&w=400",
         "title": "Toàn cảnh Kim Tự Tháp",
-        "type": "normal"
+        "type": "normal",
+        "description": "Quần thể kim tự tháp Giza nhìn từ trên cao giữa sa mạc Sahara."
+      },
+      {
+        "id": "gal-pyramid-1",
+        "url": "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&q=80&w=400",
+        "title": "Bản đồ hệ thống kim tự tháp",
+        "type": "normal",
+        "description": "Bản đồ định vị các đền thờ tang lễ và đường dẫn nối sông Nile."
+      },
+      {
+        "id": "gal-pyramid-2",
+        "url": "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&q=80&w=400",
+        "title": "Phiến đá Rosetta",
+        "type": "normal",
+        "videoUrl": "https://www.youtube.com/watch?v=yeQ-6ey30_o",
+        "modelPath": "/models/co-vat-1.glb",
+        "description": "Chìa khóa giải mã chữ tượng hình Ai Cập cổ đại do Champollion tìm ra."
+      },
+      {
+        "id": "gal-pyramid-3",
+        "url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&q=80&w=400",
+        "title": "Kĩ thuật ướp xác của người Ai Cập",
+        "type": "normal",
+        "videoUrl": "https://www.youtube.com/watch?v=2rhyo_34pkw",
+        "modelPath": "/models/co-vat-1.glb",
+        "description": "Quy trình bảo quản thi hài kéo dài 70 ngày để linh hồn Ka và Ba trở về."
       }
     ]
   },

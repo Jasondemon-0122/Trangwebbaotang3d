@@ -3,9 +3,9 @@ import type { StudentComment, StudentReaction } from '../types/interaction';
 export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
   {
     id: 'cmt-1',
-    lessonId: 'egyp-giza',
+    lessonId: 'pyramid',
     lessonName: 'Văn minh Ai Cập',
-    specId: 'spec-struct',
+    specId: 'struct',
     specTitle: 'Cấu trúc hầm ngầm',
     studentName: 'Nguyễn Minh Anh',
     studentClass: '10A1',
@@ -22,9 +22,9 @@ export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
   },
   {
     id: 'cmt-2',
-    lessonId: 'egyp-giza',
+    lessonId: 'pyramid',
     lessonName: 'Văn minh Ai Cập',
-    specId: 'spec-scale',
+    specId: 'size',
     specTitle: 'Quy mô',
     studentName: 'Trần Gia Huy',
     studentClass: '10A2',
@@ -39,9 +39,9 @@ export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
   },
   {
     id: 'cmt-3',
-    lessonId: 'egyp-giza',
+    lessonId: 'pyramid',
     lessonName: 'Văn minh Ai Cập',
-    specId: 'spec-age',
+    specId: 'age',
     specTitle: 'Niên đại',
     studentName: 'Lê Thu Trang',
     studentClass: '10A1',
@@ -56,9 +56,9 @@ export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
   },
   {
     id: 'cmt-4',
-    lessonId: 'egyp-giza',
+    lessonId: 'pyramid',
     lessonName: 'Văn minh Ai Cập',
-    specId: 'spec-loc',
+    specId: 'location',
     specTitle: 'Vị trí',
     studentName: 'Hoàng Quốc Bảo',
     studentClass: '10A3',
@@ -75,7 +75,7 @@ export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
   },
   {
     id: 'cmt-5',
-    lessonId: 'vietnam-dongson',
+    lessonId: 'thanh-nha-ho',
     lessonName: 'Văn minh Văn Lang - Âu Lạc',
     specId: 'spec-dongson',
     specTitle: 'Trống đồng Đông Sơn',
@@ -93,22 +93,47 @@ export const INITIAL_STUDENT_COMMENTS: StudentComment[] = [
 ];
 
 export const INITIAL_STUDENT_REACTIONS: StudentReaction[] = [
-  // Giza Reactions
-  { id: 'react-1', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-loc', specTitle: 'Vị trí', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-  { id: 'react-2', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-loc', specTitle: 'Vị trí', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
-  { id: 'react-3', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-loc', specTitle: 'Vị trí', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
-  
-  { id: 'react-4', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-age', specTitle: 'Niên đại', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-  { id: 'react-5', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-age', specTitle: 'Niên đại', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
-  { id: 'react-6', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-age', specTitle: 'Niên đại', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 5).toISOString() },
-  { id: 'react-7', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-age', specTitle: 'Niên đại', studentName: 'Đặng Tuấn Kiệt', studentClass: '10A4', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 6).toISOString() },
+  // --- THÔNG SỐ BÀI HỌC ---
+  // 1. Vị trí
+  { id: 'react-1', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'location', specTitle: 'Vị trí', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-2', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'location', specTitle: 'Vị trí', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-3', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'location', specTitle: 'Vị trí', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
 
-  { id: 'react-8', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-scale', specTitle: 'Quy mô', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-  { id: 'react-9', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-scale', specTitle: 'Quy mô', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-  { id: 'react-10', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-scale', specTitle: 'Quy mô', studentName: 'Hoàng Quốc Bảo', studentClass: '10A3', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
-  
-  { id: 'react-11', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-struct', specTitle: 'Cấu trúc hầm ngầm', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
-  { id: 'react-12', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-struct', specTitle: 'Cấu trúc hầm ngầm', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
-  { id: 'react-13', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-struct', specTitle: 'Cấu trúc hầm ngầm', studentName: 'Đỗ Thùy Linh', studentClass: '10A2', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 7).toISOString() },
-  { id: 'react-14', lessonId: 'egyp-giza', lessonName: 'Văn minh Ai Cập', specId: 'spec-struct', specTitle: 'Cấu trúc hầm ngầm', studentName: 'Bùi Đức Anh', studentClass: '10A3', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 8).toISOString() }
+  // 2. Niên đại (Có học sinh chưa hiểu)
+  { id: 'react-4', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'age', specTitle: 'Niên đại', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-5', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'age', specTitle: 'Niên đại', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-6', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'age', specTitle: 'Niên đại', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 5).toISOString() },
+  { id: 'react-7', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'age', specTitle: 'Niên đại', studentName: 'Đặng Tuấn Kiệt', studentClass: '10A4', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 6).toISOString() },
+
+  // 3. Quy mô (Nắm vững tốt)
+  { id: 'react-8', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'size', specTitle: 'Quy mô', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-9', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'size', specTitle: 'Quy mô', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-10', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'size', specTitle: 'Quy mô', studentName: 'Hoàng Quốc Bảo', studentClass: '10A3', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
+  { id: 'react-11', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'size', specTitle: 'Quy mô', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 5).toISOString() },
+
+  // 4. Cấu trúc (Hầm ngầm)
+  { id: 'react-12', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'struct', specTitle: 'Cấu trúc', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-13', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'struct', specTitle: 'Cấu trúc', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
+  { id: 'react-14', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'struct', specTitle: 'Cấu trúc', studentName: 'Đỗ Thùy Linh', studentClass: '10A2', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 7).toISOString() },
+
+  // --- HÌNH ẢNH & VIDEO TƯ LIỆU ---
+  // 5. Toàn cảnh Kim Tự Tháp (Ảnh tư liệu)
+  { id: 'react-15', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-0', specTitle: 'Toàn cảnh Kim Tự Tháp', studentName: 'Phạm Hải Đăng', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-16', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-0', specTitle: 'Toàn cảnh Kim Tự Tháp', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-17', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-0', specTitle: 'Toàn cảnh Kim Tự Tháp', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 1).toISOString() },
+
+  // 6. Bản đồ hệ thống kim tự tháp (Ảnh tư liệu)
+  { id: 'react-18', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-1', specTitle: 'Bản đồ hệ thống kim tự tháp', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
+  { id: 'react-19', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-1', specTitle: 'Bản đồ hệ thống kim tự tháp', studentName: 'Đặng Tuấn Kiệt', studentClass: '10A4', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+
+  // 7. Phiến đá Rosetta (Video + 3D)
+  { id: 'react-20', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-2', specTitle: 'Phiến đá Rosetta', studentName: 'Trần Gia Huy', studentClass: '10A2', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 5).toISOString() },
+  { id: 'react-21', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-2', specTitle: 'Phiến đá Rosetta', studentName: 'Hoàng Quốc Bảo', studentClass: '10A3', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-22', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-2', specTitle: 'Phiến đá Rosetta', studentName: 'Nguyễn Minh Anh', studentClass: '10A1', type: 'understood', createdAt: new Date(Date.now() - 3600000 * 1).toISOString() },
+
+  // 8. Kĩ thuật ướp xác của người Ai Cập (Video + 3D - Điểm nghẽn cần giảng thêm)
+  { id: 'react-23', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-3', specTitle: 'Kĩ thuật ướp xác của người Ai Cập', studentName: 'Lê Thu Trang', studentClass: '10A1', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 4).toISOString() },
+  { id: 'react-24', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-3', specTitle: 'Kĩ thuật ướp xác của người Ai Cập', studentName: 'Bùi Đức Anh', studentClass: '10A3', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 3).toISOString() },
+  { id: 'react-25', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-3', specTitle: 'Kĩ thuật ướp xác của người Ai Cập', studentName: 'Đỗ Thùy Linh', studentClass: '10A2', type: 'confused', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 'react-26', lessonId: 'pyramid', lessonName: 'Văn minh Ai Cập', specId: 'gal-pyramid-3', specTitle: 'Kĩ thuật ướp xác của người Ai Cập', studentName: 'Hoàng Quốc Bảo', studentClass: '10A3', type: 'fascinated', createdAt: new Date(Date.now() - 3600000 * 1).toISOString() }
 ];

@@ -473,6 +473,7 @@ export default function App() {
   const [cmsCommentStatusFilter, setCmsCommentStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
   const [cmsCommentSearch, setCmsCommentSearch] = useState<string>('');
   const [cmsTrackingLessonId, setCmsTrackingLessonId] = useState<string>('');
+  const [cmsMatrixFilter, setCmsMatrixFilter] = useState<'all' | 'specs' | 'media'>('all');
   const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<string>('');
 
@@ -2369,18 +2370,21 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                   </p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <label className="text-xs text-zinc-300 font-semibold">Chọn bài học:</label>
                                   <select
                                     value={cmsTrackingLessonId || (adminEditingMonu?.id || monumentsData[0]?.id)}
                                     onChange={(e) => setCmsTrackingLessonId(e.target.value)}
                                     className="cms-select-control"
                                   >
-                                    {monumentsData.map((m: any) => (
-                                      <option key={m.id} value={m.id}>
-                                        {m.name} ({reactions.filter(r => r.lessonId === m.id).length} lượt react)
-                                      </option>
-                                    ))}
+                                    {monumentsData.map((m: any) => {
+                                      const mCount = reactions.filter(r => r.lessonId === m.id || (m.id === 'pyramid' && r.lessonId === 'egyp-giza')).length;
+                                      return (
+                                        <option key={m.id} value={m.id}>
+                                          {m.name} ({mCount} lượt react)
+                                        </option>
+                                      );
+                                    })}
                                   </select>
                                 </div>
                               </div>
@@ -2388,118 +2392,317 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                               {(() => {
                                 const targetLessonId = cmsTrackingLessonId || adminEditingMonu?.id || monumentsData[0]?.id;
                                 const targetLesson = monumentsData.find((m: any) => m.id === targetLessonId) || adminEditingMonu || monumentsData[0];
-                                const lessonReactions = reactions.filter(r => r.lessonId === targetLessonId);
+                                const lessonReactions = reactions.filter(r => r.lessonId === targetLesson.id || (targetLesson.id === 'pyramid' && r.lessonId === 'egyp-giza'));
 
                                 const totalUnderstood = lessonReactions.filter(r => r.type === 'understood').length;
                                 const totalConfused = lessonReactions.filter(r => r.type === 'confused').length;
                                 const totalFascinated = lessonReactions.filter(r => r.type === 'fascinated').length;
-                                const totalFeedback = totalUnderstood + totalConfused;
-                                const understandRate = totalFeedback > 0 ? Math.round((totalUnderstood / totalFeedback) * 100) : 100;
+                                const totalFeedbackAll = totalUnderstood + totalConfused;
+                                const overallRate = totalFeedbackAll > 0 ? Math.round((totalUnderstood / totalFeedbackAll) * 100) : null;
 
                                 const confusedStudents = lessonReactions.filter(r => r.type === 'confused');
 
-                                const specsList = targetLesson?.normalData?.specs || [
-                                  { id: 'spec-loc', title: 'Vị trí', icon: '📍' },
-                                  { id: 'spec-age', title: 'Niên đại', icon: '📅' },
-                                  { id: 'spec-scale', title: 'Quy mô', icon: '📐' },
-                                  { id: 'spec-struct', title: 'Cấu trúc hầm ngầm', icon: '🏛️' }
-                                ];
+                                // 1. Thông số nội dung bài học (normalData, sectionData, meshData)
+                                const normalSpecs = (targetLesson?.normalData?.specs || []).map((s: any) => ({
+                                  id: s.id,
+                                  title: s.title,
+                                  icon: s.icon || '📌',
+                                  type: 'spec' as const,
+                                  typeLabel: 'Thông số',
+                                  badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                }));
+
+                                const sectionSpecs = (targetLesson?.sectionData?.specs || []).map((s: any) => ({
+                                  id: s.id,
+                                  title: `${s.title} (Mặt cắt 3D)`,
+                                  icon: s.icon || '📐',
+                                  type: 'spec' as const,
+                                  typeLabel: 'Mặt cắt 3D',
+                                  badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                }));
+
+                                // 2. Hình ảnh, Video và Mô hình 3D từ Thư viện (Gallery)
+                                const galleryItems = (targetLesson?.gallery || []).map((g: any, idx: number) => {
+                                  const isVideo = !!g.videoUrl;
+                                  const is3D = !!g.modelPath;
+                                  const icon = isVideo ? '▶️' : (is3D ? '🧊' : '📷');
+                                  const typeLabel = isVideo ? 'Video tư liệu' : (is3D ? 'Mô hình 3D' : 'Ảnh tư liệu');
+                                  const badgeColor = isVideo 
+                                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
+                                    : is3D 
+                                      ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' 
+                                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+
+                                  return {
+                                    id: g.id || `gal-${targetLesson.id}-${idx}`,
+                                    title: g.title || (isVideo ? `Video tư liệu ${idx + 1}` : (is3D ? `Mô hình 3D ${idx + 1}` : `Ảnh tư liệu ${idx + 1}`)),
+                                    icon,
+                                    thumbUrl: g.url,
+                                    isVideo,
+                                    is3D,
+                                    type: 'media' as const,
+                                    typeLabel,
+                                    badgeColor
+                                  };
+                                });
+
+                                // 3. Thu thập các phản hồi đặc biệt hoặc mục chưa map
+                                const knownItems = [...normalSpecs, ...sectionSpecs, ...galleryItems];
+                                const knownIds = new Set(knownItems.map(item => item.id));
+
+                                const unmappedReactions = lessonReactions.filter(r => {
+                                  const matchById = knownIds.has(r.specId);
+                                  const matchByLegacy = (r.specId === 'spec-loc' && knownIds.has('location')) ||
+                                                        (r.specId === 'spec-age' && knownIds.has('age')) ||
+                                                        (r.specId === 'spec-scale' && knownIds.has('size')) ||
+                                                        (r.specId === 'spec-struct' && (knownIds.has('struct') || knownIds.has('spec-struct')));
+                                  const matchByTitle = knownItems.some(item => item.title.toLowerCase() === r.specTitle?.toLowerCase());
+                                  return !matchById && !matchByLegacy && !matchByTitle;
+                                });
+
+                                const otherMap = new Map<string, string>();
+                                unmappedReactions.forEach(r => {
+                                  otherMap.set(r.specId, r.specTitle || 'Tư liệu mở rộng');
+                                });
+                                const extraItems = Array.from(otherMap.entries()).map(([id, title]) => ({
+                                  id,
+                                  title,
+                                  icon: '🏛️',
+                                  type: 'other' as const,
+                                  typeLabel: 'Tư liệu khác',
+                                  badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                }));
+
+                                const allTrackingItems = [...knownItems, ...extraItems];
+
+                                const filteredTrackingItems = allTrackingItems.filter(item => {
+                                  if (cmsMatrixFilter === 'specs') return item.type === 'spec';
+                                  if (cmsMatrixFilter === 'media') return item.type === 'media';
+                                  return true;
+                                });
 
                                 return (
                                   <div className="flex flex-col gap-6">
                                     {/* Top Analytics Cards */}
                                     <div className="cms-kpi-grid">
                                       <div className="cms-kpi-card border-emerald-500/30">
-                                        <div className="cms-kpi-val text-emerald-400">{understandRate}%</div>
+                                        <div className={`cms-kpi-val ${
+                                          totalFeedbackAll === 0
+                                            ? 'text-zinc-500'
+                                            : overallRate! >= 80
+                                              ? 'text-emerald-400'
+                                              : overallRate! >= 50
+                                                ? 'text-amber-400'
+                                                : 'text-rose-400'
+                                        }`}>
+                                          {totalFeedbackAll === 0 ? '--%' : `${overallRate}%`}
+                                        </div>
                                         <div className="cms-kpi-lbl">📊 Tỉ lệ học sinh nắm vững</div>
                                         <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
                                           <div
-                                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                                            style={{ width: `${understandRate}%` }}
+                                            className={`h-full rounded-full transition-all duration-500 ${
+                                              totalFeedbackAll === 0
+                                                ? 'bg-zinc-700'
+                                                : overallRate! >= 80
+                                                  ? 'bg-emerald-500'
+                                                  : overallRate! >= 50
+                                                    ? 'bg-amber-500'
+                                                    : 'bg-rose-500'
+                                            }`}
+                                            style={{ width: totalFeedbackAll === 0 ? '0%' : `${overallRate}%` }}
                                           />
                                         </div>
+                                        <span className="text-[10px] text-zinc-400 mt-1">
+                                          {totalFeedbackAll === 0 ? 'Chưa có lượt đánh giá hiểu bài' : `${totalUnderstood}/${totalFeedbackAll} phản hồi nắm bài tốt`}
+                                        </span>
                                       </div>
 
                                       <div className="cms-kpi-card border-cyan-500/30">
                                         <div className="cms-kpi-val text-cyan-400">{totalUnderstood}</div>
                                         <div className="cms-kpi-lbl">💡 Lượt báo "Đã hiểu rõ"</div>
+                                        <span className="text-[10px] text-zinc-400 mt-1">Học sinh đã tiếp thu tốt</span>
                                       </div>
 
                                       <div className="cms-kpi-card border-rose-500/30">
                                         <div className="cms-kpi-val text-rose-400">{totalConfused}</div>
                                         <div className="cms-kpi-lbl">❓ Lượt báo "Chưa hiểu rõ"</div>
+                                        <span className="text-[10px] text-zinc-400 mt-1">{totalConfused > 0 ? 'Cần củng cố trong tiết dạy' : 'Không có vướng mắc'}</span>
                                       </div>
 
                                       <div className="cms-kpi-card border-purple-500/30">
                                         <div className="cms-kpi-val text-purple-400">{totalFascinated}</div>
                                         <div className="cms-kpi-lbl">❤️ Lượt báo "Rất thú vị"</div>
+                                        <span className="text-[10px] text-zinc-400 mt-1">Gợi mở hứng thú khám phá</span>
                                       </div>
                                     </div>
 
-                                    {/* Achievement Breakdown Heatmap Table */}
+                                    {/* Achievement & Media Breakdown Heatmap Table */}
                                     <div className="bg-zinc-900/90 rounded-2xl border border-white/10 p-5 shadow-xl">
-                                      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                                          <span>🎯 Ma Trận Hiểu Bài Từng Thành Tựu ({targetLesson.name})</span>
-                                        </h4>
-                                        <span className="text-xs text-zinc-400">
-                                          Tự động đánh giá điểm nghẽn kiến thức để giáo viên điều chỉnh bài giảng
-                                        </span>
+                                      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                                        <div>
+                                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                            <span>🎯 Ma Trận Hiểu Bài Từng Thành Tựu & Tư Liệu ({targetLesson.name})</span>
+                                          </h4>
+                                          <p className="text-xs text-zinc-400 mt-0.5">
+                                            Theo dõi tỉ lệ tiếp thu thực tế trên từng thành tựu, hình ảnh tư liệu, video và 3D
+                                          </p>
+                                        </div>
+
+                                        {/* Filter tabs: Tất cả | Thông số | Hình ảnh & Video */}
+                                        <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10">
+                                          <button
+                                            type="button"
+                                            onClick={() => setCmsMatrixFilter('all')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                              cmsMatrixFilter === 'all'
+                                                ? 'bg-white text-zinc-900 shadow'
+                                                : 'text-zinc-400 hover:text-white'
+                                            }`}
+                                          >
+                                            Tất cả ({allTrackingItems.length})
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setCmsMatrixFilter('specs')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                              cmsMatrixFilter === 'specs'
+                                                ? 'bg-white text-zinc-900 shadow'
+                                                : 'text-zinc-400 hover:text-white'
+                                            }`}
+                                          >
+                                            📜 Thông số ({normalSpecs.length + sectionSpecs.length})
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setCmsMatrixFilter('media')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                              cmsMatrixFilter === 'media'
+                                                ? 'bg-white text-zinc-900 shadow'
+                                                : 'text-zinc-400 hover:text-white'
+                                            }`}
+                                          >
+                                            🎬 Ảnh & Video ({galleryItems.length})
+                                          </button>
+                                        </div>
                                       </div>
 
                                       <div className="overflow-x-auto">
                                         <table className="w-full text-left text-xs border-collapse">
                                           <thead>
                                             <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[11px]">
-                                              <th className="py-3 px-4">Thành tựu / Bộ phận</th>
+                                              <th className="py-3 px-4">Nội dung / Tư liệu</th>
+                                              <th className="py-3 px-4">Loại học liệu</th>
                                               <th className="py-3 px-4 text-center">💡 Đã hiểu</th>
                                               <th className="py-3 px-4 text-center">❓ Chưa hiểu</th>
                                               <th className="py-3 px-4 text-center">❤️ Thú vị</th>
-                                              <th className="py-3 px-4">Tỷ lệ hiểu bài</th>
+                                              <th className="py-3 px-4 min-w-[140px]">Tỷ lệ hiểu bài</th>
                                               <th className="py-3 px-4">Đánh giá sư phạm & Khuyến nghị</th>
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-white/5">
-                                            {specsList.map((spec: any) => {
-                                              const uCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'understood').length;
-                                              const cCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'confused').length;
-                                              const fCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'fascinated').length;
-                                              const specTotal = uCount + cCount;
-                                              const specRate = specTotal > 0 ? Math.round((uCount / specTotal) * 100) : 100;
-                                              const isAlert = cCount >= 3 || (specTotal >= 4 && specRate < 70);
+                                            {filteredTrackingItems.map((item: any) => {
+                                              const isItemReaction = (r: StudentReaction) => {
+                                                if (r.specId === item.id) return true;
+                                                if (r.specTitle && item.title && r.specTitle.trim().toLowerCase() === item.title.trim().toLowerCase()) return true;
+                                                if (item.id === 'location' && r.specId === 'spec-loc') return true;
+                                                if (item.id === 'age' && r.specId === 'spec-age') return true;
+                                                if (item.id === 'size' && r.specId === 'spec-scale') return true;
+                                                if (item.id === 'struct' && r.specId === 'spec-struct') return true;
+                                                return false;
+                                              };
+
+                                              const uCount = lessonReactions.filter(r => isItemReaction(r) && r.type === 'understood').length;
+                                              const cCount = lessonReactions.filter(r => isItemReaction(r) && r.type === 'confused').length;
+                                              const fCount = lessonReactions.filter(r => isItemReaction(r) && r.type === 'fascinated').length;
+                                              const itemFeedback = uCount + cCount;
+                                              const hasFeedback = itemFeedback > 0;
+                                              const itemRate = hasFeedback ? Math.round((uCount / itemFeedback) * 100) : null;
+                                              const isAlert = cCount >= 3 || (hasFeedback && itemRate !== null && itemRate < 60);
+                                              const isWarning = !isAlert && cCount > 0 && itemRate !== null && itemRate < 80;
 
                                               return (
-                                                <tr key={spec.id} className="hover:bg-white/5 transition-colors">
-                                                  <td className="py-3 px-4 font-semibold text-white flex items-center gap-2">
-                                                    <span>{spec.icon || '📌'}</span>
-                                                    <span>{spec.title}</span>
-                                                  </td>
-                                                  <td className="py-3 px-4 text-center text-emerald-400 font-bold">{uCount}</td>
-                                                  <td className="py-3 px-4 text-center text-rose-400 font-bold">{cCount}</td>
-                                                  <td className="py-3 px-4 text-center text-purple-400 font-bold">{fCount}</td>
-                                                  <td className="py-3 px-4 w-40">
-                                                    <div className="flex items-center gap-2">
-                                                      <div className="flex-1 bg-white/10 h-2 rounded-full overflow-hidden">
-                                                        <div
-                                                          className={`h-full rounded-full ${isAlert ? 'bg-rose-500' : 'bg-emerald-500'}`}
-                                                          style={{ width: `${specRate}%` }}
+                                                <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                  <td className="py-3 px-4 font-semibold text-white">
+                                                    <div className="flex items-center gap-3">
+                                                      {item.thumbUrl ? (
+                                                        <img
+                                                          src={item.thumbUrl}
+                                                          alt={item.title}
+                                                          className="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0"
+                                                          onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
                                                         />
+                                                      ) : (
+                                                        <span className="text-base shrink-0">{item.icon || '📌'}</span>
+                                                      )}
+                                                      <div>
+                                                        <div className="text-xs font-semibold text-white">{item.title}</div>
+                                                        {item.isVideo && <span className="text-[10px] text-rose-400 font-medium">▶ Video tư liệu</span>}
+                                                        {item.is3D && <span className="text-[10px] text-cyan-400 font-medium">🧊 Mô hình 3D</span>}
                                                       </div>
-                                                      <span className="font-bold text-[11px]">{specRate}%</span>
                                                     </div>
                                                   </td>
                                                   <td className="py-3 px-4">
-                                                    {isAlert ? (
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${item.badgeColor}`}>
+                                                      {item.typeLabel}
+                                                    </span>
+                                                  </td>
+                                                  <td className="py-3 px-4 text-center font-bold">
+                                                    <span className={uCount > 0 ? "text-emerald-400" : "text-zinc-600"}>{uCount}</span>
+                                                  </td>
+                                                  <td className="py-3 px-4 text-center font-bold">
+                                                    <span className={cCount > 0 ? "text-rose-400" : "text-zinc-600"}>{cCount}</span>
+                                                  </td>
+                                                  <td className="py-3 px-4 text-center font-bold">
+                                                    <span className={fCount > 0 ? "text-purple-400" : "text-zinc-600"}>{fCount}</span>
+                                                  </td>
+                                                  <td className="py-3 px-4 w-44">
+                                                    {hasFeedback ? (
+                                                      <div className="flex items-center gap-2">
+                                                        <div className="flex-1 bg-white/10 h-2 rounded-full overflow-hidden">
+                                                          <div
+                                                            className={`h-full rounded-full transition-all duration-300 ${
+                                                              isAlert ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                                                            }`}
+                                                            style={{ width: `${itemRate}%` }}
+                                                          />
+                                                        </div>
+                                                        <span className={`font-bold text-[11px] ${
+                                                          isAlert ? 'text-rose-400' : isWarning ? 'text-amber-400' : 'text-emerald-400'
+                                                        }`}>
+                                                          {itemRate}%
+                                                        </span>
+                                                      </div>
+                                                    ) : (
+                                                      <div className="flex items-center gap-2 text-zinc-500">
+                                                        <div className="flex-1 bg-white/5 h-2 rounded-full overflow-hidden">
+                                                          <div className="h-full bg-zinc-700 w-0" />
+                                                        </div>
+                                                        <span className="font-semibold text-[11px] text-zinc-500">--%</span>
+                                                      </div>
+                                                    )}
+                                                  </td>
+                                                  <td className="py-3 px-4">
+                                                    {!hasFeedback ? (
+                                                      fCount > 0 ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                          ❤️ {fCount} học sinh yêu thích (Chưa có khảo sát hiểu bài)
+                                                        </span>
+                                                      ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800/80 text-zinc-400 border border-white/5">
+                                                          ⚪ Chưa có phản hồi (0 lượt)
+                                                        </span>
+                                                      )
+                                                    ) : isAlert ? (
                                                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                                        ⚠️ CẦN GIẢNG THÊM ({cCount} học sinh chưa hiểu)
+                                                        🚨 ĐIỂM NGHẼN KIẾN THỨC ({cCount}/{itemFeedback} học sinh gặp khó)
                                                       </span>
-                                                    ) : uCount >= 3 ? (
-                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                                        ✅ NẮM BẮT TỐT (Kiến thức truyền tải rõ ràng)
+                                                    ) : isWarning ? (
+                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                        ⚠️ CẦN GIẢI THÍCH THÊM ({cCount} học sinh chưa hiểu rõ)
                                                       </span>
                                                     ) : (
-                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-300">
-                                                        📊 Đang thu thập phản hồi ({uCount + cCount} lượt)
+                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                        ✅ NẮM BẮT TỐT ({uCount}/{itemFeedback} học sinh hiểu)
                                                       </span>
                                                     )}
                                                   </td>
