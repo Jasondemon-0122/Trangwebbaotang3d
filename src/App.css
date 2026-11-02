@@ -2149,3 +2149,829 @@ body.light-mode .howard-glass-card:hover {
   transform: translateY(-6px) scale(1.02);
 }
 
+/* ==========================================================================
+   TƯƠNG TÁC THÀNH TỰU & BÌNH LUẬN HỌC SINH (STUDENT DISCUSSION & REACTIONS)
+   Chuẩn Taste-Skill & UI/UX Pro Max: Tối giản, thanh lịch, tương phản cao.
+   ========================================================================== */
+
+/* Sidebar Right Mode Tab Switcher */
+.sidebar-tab-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(12, 12, 16, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 14px;
+}
+body.light-mode .sidebar-tab-switcher {
+  background: rgba(241, 245, 249, 0.85);
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+.sidebar-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+.sidebar-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+body.light-mode .sidebar-tab-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.sidebar-tab-btn.active {
+  background: #ffffff;
+  color: #09090b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+body.light-mode .sidebar-tab-btn.active {
+  background: #09090b;
+  color: #ffffff;
+}
+
+.comment-badge-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #06b6d4;
+  color: #ffffff;
+  font-weight: 700;
+}
+.sidebar-tab-btn.active .comment-badge-count {
+  background: #09090b;
+  color: #ffffff;
+}
+body.light-mode .sidebar-tab-btn.active .comment-badge-count {
+  background: #ffffff;
+  color: #09090b;
+}
+
+/* Micro Reaction Chips on Achievement Spec Cards */
+.spec-reactions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+body.light-mode .spec-reactions-row {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+body.light-mode .reaction-chip {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+.reaction-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  transform: translateY(-1px);
+}
+body.light-mode .reaction-chip:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.reaction-chip.active-understood {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+  font-weight: 600;
+}
+.reaction-chip.active-confused {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.35);
+  font-weight: 600;
+}
+.reaction-chip.active-fascinated {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.35);
+  font-weight: 600;
+}
+
+.chip-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+body.light-mode .chip-count {
+  background: rgba(0, 0, 0, 0.08);
+}
+.chip-confused {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fb7185;
+}
+
+/* ==========================================================================
+   STUDENT COMMENTS DISCUSSION FEED (PANEL BÌNH LUẬN)
+   ========================================================================== */
+.student-comments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Hộp soạn thảo bình luận */
+.comment-composer-card {
+  background: rgba(18, 18, 24, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+body.light-mode .comment-composer-card {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.composer-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-avatar-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+body.light-mode .composer-avatar-badge {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.composer-user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.composer-user-class {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.avatar-quick-picker {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.avatar-pill-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+body.light-mode .avatar-pill-btn {
+  background: rgba(0, 0, 0, 0.04);
+}
+.avatar-pill-btn:hover {
+  transform: scale(1.15);
+  background: rgba(255, 255, 255, 0.12);
+}
+.avatar-pill-btn.selected {
+  border-color: #06b6d4;
+  background: rgba(6, 182, 212, 0.2);
+  transform: scale(1.1);
+}
+
+.composer-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-spec-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  color: var(--text-main);
+  outline: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+body.light-mode .composer-spec-select {
+  background: #ffffff;
+  color: #09090b;
+}
+
+.composer-tags-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.composer-tag-chip {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+body.light-mode .composer-tag-chip {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+.composer-tag-chip:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+.composer-tag-chip.active {
+  background: #06b6d4;
+  color: #ffffff;
+  border-color: #06b6d4;
+}
+
+.composer-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--text-main);
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.2s ease;
+}
+body.light-mode .composer-textarea {
+  background: #ffffff;
+  color: #09090b;
+}
+.composer-textarea:focus {
+  border-color: #06b6d4;
+}
+
+/* Cảnh báo bộ lọc từ ngữ thô tục */
+.moderation-alert {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+body.light-mode .moderation-alert {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.comment-success-alert {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  font-size: 11px;
+  font-weight: 600;
+}
+body.light-mode .comment-success-alert {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+
+.composer-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-post-comment {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #0284c7;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+  margin-left: auto;
+}
+.btn-post-comment:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+/* Comments Filter Bar */
+.comments-filter-bar {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.comment-filter-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+body.light-mode .comment-filter-btn {
+  background: rgba(0, 0, 0, 0.03);
+}
+.comment-filter-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+.comment-filter-btn.active {
+  background: #ffffff;
+  color: #09090b;
+  border-color: transparent;
+}
+body.light-mode .comment-filter-btn.active {
+  background: #09090b;
+  color: #ffffff;
+}
+
+/* Comments Feed List */
+.comments-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.comment-item-card {
+  background: rgba(18, 18, 24, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+body.light-mode .comment-item-card {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.comment-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-author-avatar {
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+body.light-mode .comment-author-avatar {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.comment-author-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-author-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.comment-author-class {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+body.light-mode .comment-author-class {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.comment-meta-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.comment-tag-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.comment-tag-badge.tag-question {
+  background: rgba(6, 182, 212, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+.comment-tag-badge.tag-unclear {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+.comment-tag-badge.tag-impression {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.comment-tag-badge.tag-connection {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.comment-spec-link {
+  font-size: 10.5px;
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+.comment-body-text {
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.5;
+  margin: 2px 0 4px 0;
+  word-break: break-word;
+}
+
+/* Lời phản hồi của thầy cô */
+.teacher-reply-bubble {
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 8px 8px 0;
+  padding: 6px 10px;
+  margin: 4px 0;
+}
+body.light-mode .teacher-reply-bubble {
+  background: #fffbeb;
+  border-left-color: #d97706;
+}
+
+.teacher-reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.teacher-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+body.light-mode .teacher-badge {
+  color: #b45309;
+}
+
+.teacher-time {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.teacher-reply-content {
+  font-size: 11.5px;
+  color: var(--text-main);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.comment-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.comment-like-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.comment-like-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+}
+.comment-like-btn.liked {
+  color: #f43f5e;
+}
+
+.empty-comments-box {
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+/* ==========================================================================
+   TEACHER CMS COMMENTS & TRACKING STYLES
+   ========================================================================== */
+.cms-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.cms-kpi-card {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cms-kpi-val {
+  font-size: 26px;
+  font-weight: 800;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.1;
+}
+
+.cms-kpi-lbl {
+  font-size: 11.5px;
+  color: #a1a1aa;
+  font-weight: 600;
+}
+
+.cms-filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cms-select-control {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #ffffff;
+  outline: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+.cms-search-input {
+  flex: 1;
+  min-width: 220px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #ffffff;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+}
+.cms-search-input:focus {
+  border-color: #38bdf8;
+}
+
+.cms-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cms-comment-card {
+  background: #121215;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: all 0.2s ease;
+}
+.cms-comment-card.is-hidden {
+  opacity: 0.65;
+  border-color: rgba(244, 63, 94, 0.3);
+  background: rgba(244, 63, 94, 0.03);
+}
+
+.cms-comment-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cms-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cms-comment-content {
+  font-size: 13px;
+  color: #f4f4f5;
+  line-height: 1.5;
+  margin: 4px 0;
+}
+
+.cms-teacher-reply-box {
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+  margin-top: 6px;
+}
+
+.cms-reply-composer {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cms-reply-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #ffffff;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  resize: vertical;
+}
+
+.cms-comment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cms-action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.cms-action-btn.btn-hide {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+.cms-action-btn.btn-hide:hover {
+  background: rgba(244, 63, 94, 0.25);
+}
+.cms-action-btn.btn-unhide {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+.cms-action-btn.btn-unhide:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+.cms-action-btn.btn-reply {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+.cms-action-btn.btn-reply:hover {
+  background: rgba(56, 189, 248, 0.25);
+}
+.cms-action-btn.btn-delete {
+  background: rgba(255, 255, 255, 0.05);
+  color: #a1a1aa;
+}
+.cms-action-btn.btn-delete:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.cms-tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+

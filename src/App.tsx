@@ -7,6 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 import { QRCodeSVG } from 'qrcode.react'; 
 import './App.css';
 import { initialMonumentsData } from './data';
+import type { StudentComment, StudentReaction } from './types/interaction';
+import { INITIAL_STUDENT_COMMENTS, INITIAL_STUDENT_REACTIONS } from './data/initialInteractions';
+import { checkProfanity } from './utils/moderation';
 
 // ==========================================
 // CẤU HÌNH SUPABASE CLOUD (Bảo mật qua Environment Variables)
@@ -430,9 +433,199 @@ export default function App() {
   const activeMonu = monumentsData.find((m: any) => m.id === activeMonuId) || monumentsData[0] || {};
   const adminEditingMonu = monumentsData.find((m: any) => m.id === adminEditingId);
   // QUẢN LÝ TAB TRONG CMS GIÁO VIÊN
-  const [activeAdminTab, setActiveAdminTab] = useState('general');
+  const [activeAdminTab, setActiveAdminTab] = useState<'general' | 'games' | 'ar_masks' | 'ar_hands' | 'comments' | 'tracking' | 'report'>('general');
   const controlsRef = useRef<any>(null);
   const holoControlsRef = useRef<any>(null);
+
+  // 💬 TƯƠNG TÁC & BÌNH LUẬN HỌC SINH (STUDENT INTERACTION & MODERATION)
+  const [comments, setComments] = useState<StudentComment[]>(() => {
+    try {
+      const saved = localStorage.getItem('heritage_student_comments');
+      return saved ? JSON.parse(saved) : INITIAL_STUDENT_COMMENTS;
+    } catch {
+      return INITIAL_STUDENT_COMMENTS;
+    }
+  });
+
+  const [reactions, setReactions] = useState<StudentReaction[]>(() => {
+    try {
+      const saved = localStorage.getItem('heritage_student_reactions');
+      return saved ? JSON.parse(saved) : INITIAL_STUDENT_REACTIONS;
+    } catch {
+      return INITIAL_STUDENT_REACTIONS;
+    }
+  });
+
+  // Tab chuyển đổi bên sidebar phải: 'specs' (Kiến thức) | 'comments' (Thảo luận học sinh)
+  const [sidebarRightTab, setSidebarRightTab] = useState<'specs' | 'comments'>('specs');
+
+  // State nhập bình luận học sinh
+  const [newCommentText, setNewCommentText] = useState('');
+  const [newCommentTag, setNewCommentTag] = useState<'question' | 'impression' | 'connection' | 'unclear'>('question');
+  const [newCommentSpecId, setNewCommentSpecId] = useState<string>('general');
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(AVATAR_LIST[2] || '👨‍🎓');
+  const [commentFilterTag, setCommentFilterTag] = useState<string>('all');
+  const [moderationWarning, setModerationWarning] = useState<string | null>(null);
+  const [commentSuccessMsg, setCommentSuccessMsg] = useState<string | null>(null);
+
+  // State bộ lọc và thao tác trong CMS Giáo viên
+  const [cmsCommentLessonFilter, setCmsCommentLessonFilter] = useState<string>('all');
+  const [cmsCommentStatusFilter, setCmsCommentStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
+  const [cmsCommentSearch, setCmsCommentSearch] = useState<string>('');
+  const [cmsTrackingLessonId, setCmsTrackingLessonId] = useState<string>('');
+  const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<string>('');
+
+  // Tự động lưu bình luận và reaction vào localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('heritage_student_comments', JSON.stringify(comments));
+    } catch {}
+  }, [comments]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('heritage_student_reactions', JSON.stringify(reactions));
+    } catch {}
+  }, [reactions]);
+
+  // Gửi bình luận học sinh với bộ lọc từ ngữ vi phạm thuần phong mỹ tục
+  const handlePostComment = (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    setModerationWarning(null);
+    setCommentSuccessMsg(null);
+
+    if (!newCommentText.trim()) {
+      setModerationWarning('Vui lòng nhập nội dung bình luận của em.');
+      return;
+    }
+
+    // 🛡️ Kiểm tra bộ lọc từ ngữ bậy, sai thuần phong mỹ tục
+    const modResult = checkProfanity(newCommentText);
+    if (!modResult.isValid) {
+      setModerationWarning(
+        `⚠️ ${modResult.reason} Vui lòng bỏ từ ngữ chưa chuẩn mực ("${modResult.flaggedWord || '...'}") để cùng giữ gìn văn hóa học đường văn minh!`
+      );
+      return;
+    }
+
+    const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+    const currentStudentClass = currentUser?.user_metadata?.class_name || studentClass.trim() || '10A';
+    const avatar = currentUser?.user_metadata?.avatar || selectedAvatar || '👨‍🎓';
+
+    const specObj = currentInfo.specs?.find((s: any) => s.id === newCommentSpecId);
+
+    const newComment: StudentComment = {
+      id: `cmt-${Date.now()}`,
+      lessonId: activeMonu.id,
+      lessonName: activeMonu.name,
+      specId: newCommentSpecId !== 'general' ? newCommentSpecId : undefined,
+      specTitle: specObj ? specObj.title : (newCommentSpecId !== 'general' ? newCommentSpecId : undefined),
+      studentName: currentStudentName,
+      studentClass: currentStudentClass,
+      studentEmail: currentUser?.email,
+      studentAvatar: avatar,
+      content: newCommentText.trim(),
+      tag: newCommentTag,
+      createdAt: new Date().toISOString(),
+      likes: 0,
+      likedBy: [],
+      status: 'active'
+    };
+
+    setComments(prev => [newComment, ...prev]);
+    setNewCommentText('');
+    setCommentSuccessMsg('✨ Bình luận của em đã được đăng thành công!');
+    setTimeout(() => setCommentSuccessMsg(null), 3500);
+
+    try {
+      supabase.from('student_comments').insert([newComment]).then();
+    } catch {}
+  };
+
+  // Thả tim / like bình luận
+  const handleToggleLikeComment = (commentId: string) => {
+    const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+    setComments(prev => prev.map(c => {
+      if (c.id !== commentId) return c;
+      const alreadyLiked = (c.likedBy || []).includes(currentStudentName);
+      const newLikedBy = alreadyLiked 
+        ? (c.likedBy || []).filter(n => n !== currentStudentName)
+        : [...(c.likedBy || []), currentStudentName];
+      return {
+        ...c,
+        likes: newLikedBy.length,
+        likedBy: newLikedBy
+      };
+    }));
+  };
+
+  // Thả Reaction (Đã hiểu / Chưa hiểu / Thú vị) trên từng thành tựu
+  const handleToggleReaction = (specId: string, specTitle: string, type: 'understood' | 'confused' | 'fascinated') => {
+    const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+    const currentStudentClass = currentUser?.user_metadata?.class_name || studentClass.trim() || '10A';
+
+    setReactions(prev => {
+      const existingSame = prev.findIndex(
+        r => r.lessonId === activeMonu.id && r.specId === specId && r.studentName === currentStudentName && r.type === type
+      );
+
+      if (existingSame >= 0) {
+        return prev.filter((_, idx) => idx !== existingSame);
+      } else {
+        const cleaned = prev.filter(
+          r => !(r.lessonId === activeMonu.id && r.specId === specId && r.studentName === currentStudentName && (
+            (type === 'understood' && r.type === 'confused') ||
+            (type === 'confused' && r.type === 'understood')
+          ))
+        );
+
+        const newReaction: StudentReaction = {
+          id: `react-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          lessonId: activeMonu.id,
+          lessonName: activeMonu.name,
+          specId,
+          specTitle,
+          studentName: currentStudentName,
+          studentClass: currentStudentClass,
+          studentEmail: currentUser?.email,
+          type,
+          createdAt: new Date().toISOString()
+        };
+        return [...cleaned, newReaction];
+      }
+    });
+  };
+
+  // CMS: Ẩn / Hiện bình luận
+  const handleToggleHideComment = (commentId: string) => {
+    setComments(prev => prev.map(c => {
+      if (c.id !== commentId) return c;
+      return { ...c, status: c.status === 'hidden' ? 'active' : 'hidden' };
+    }));
+  };
+
+  // CMS: Xóa vĩnh viễn bình luận
+  const handleDeleteComment = (commentId: string) => {
+    if (window.confirm('Thầy cô có chắc chắn muốn xóa vĩnh viễn bình luận này?')) {
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    }
+  };
+
+  // CMS: Giáo viên gửi phản hồi giải đáp
+  const handleSaveTeacherReply = (commentId: string) => {
+    if (!replyText.trim()) return;
+    setComments(prev => prev.map(c => {
+      if (c.id !== commentId) return c;
+      return {
+        ...c,
+        teacherReply: replyText.trim(),
+        teacherRepliedAt: new Date().toISOString()
+      };
+    }));
+    setReplyingCommentId(null);
+    setReplyText('');
+  };
 
 // 1. Hàm tra cứu Role từ bảng user_roles theo Email (đặt độc lập ở ngoài)
   const determineUserRole = async (email: string | undefined) => {
@@ -1633,13 +1826,13 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                 {/* MENU TABS CỦA TRUNG TÂM ĐIỀU KHIỂN (CMS) */}
                                 {/* ======================================= */}
                                 <div className="flex gap-2 mb-6 flex-wrap bg-zinc-900/90 p-2 rounded-2xl border border-white/10">
-                                    {['general', 'games', 'ar_masks', 'ar_hands', 'report'].map(tab => (
+                                    {['general', 'games', 'ar_masks', 'ar_hands', 'comments', 'tracking', 'report'].map(tab => (
                                         <button 
                                             key={tab} 
                                             onClick={(e) => { e.preventDefault(); setActiveAdminTab(tab as any); }}
                                             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                                                 activeAdminTab === tab 
-                                                    ? (tab === 'ar_masks' ? 'bg-cyan-500 text-black shadow-md' : tab === 'ar_hands' ? 'bg-amber-500 text-black shadow-md' : 'bg-white text-zinc-950 shadow-md')
+                                                    ? (tab === 'ar_masks' ? 'bg-cyan-500 text-black shadow-md' : tab === 'ar_hands' ? 'bg-amber-500 text-black shadow-md' : tab === 'comments' ? 'bg-indigo-500 text-white shadow-md' : tab === 'tracking' ? 'bg-emerald-500 text-black shadow-md' : 'bg-white text-zinc-950 shadow-md')
                                                     : 'bg-transparent text-zinc-400 hover:text-white hover:bg-white/5'
                                             }`}
                                         >
@@ -1647,6 +1840,8 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                              tab === 'games' ? '🎮 Các Mini-Games' : 
                                              tab === 'ar_masks' ? '🎭 Xưởng Mặt Nạ AR' : 
                                              tab === 'ar_hands' ? '🖐️ Xưởng Cổ Vật' : 
+                                             tab === 'comments' ? `💬 Quản lý Bình luận (${comments.length})` :
+                                             tab === 'tracking' ? '📈 Tracking Hiểu bài' :
                                              '📊 Sổ theo dõi điểm'}
                                         </button>
                                     ))}
@@ -1944,6 +2139,422 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                                  ))}
                              </div>
                           )}
+                          {/* ======================================= */}
+                          {/* TAB 5: QUẢN LÝ & THỐNG KÊ BÌNH LUẬN HỌC SINH */}
+                          {/* ======================================= */}
+                          {activeAdminTab === 'comments' && (
+                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                              {/* KPI Summary Cards */}
+                              <div className="cms-kpi-grid">
+                                <div className="cms-kpi-card">
+                                  <div className="cms-kpi-val text-cyan-400">{comments.length}</div>
+                                  <div className="cms-kpi-lbl">💬 Tổng số bình luận</div>
+                                </div>
+                                <div className="cms-kpi-card">
+                                  <div className="cms-kpi-val text-amber-400">
+                                    {comments.filter(c => c.tag === 'question' || c.tag === 'unclear').length}
+                                  </div>
+                                  <div className="cms-kpi-lbl">❓ Thắc mắc / Cần giải đáp</div>
+                                </div>
+                                <div className="cms-kpi-card">
+                                  <div className="cms-kpi-val text-emerald-400">
+                                    {comments.filter(c => c.status !== 'hidden').length}
+                                  </div>
+                                  <div className="cms-kpi-lbl">🟢 Đang hiển thị</div>
+                                </div>
+                                <div className="cms-kpi-card">
+                                  <div className="cms-kpi-val text-rose-400">
+                                    {comments.filter(c => c.status === 'hidden').length}
+                                  </div>
+                                  <div className="cms-kpi-lbl">🚫 Đã ẩn (Cần xử lý)</div>
+                                </div>
+                              </div>
+
+                              {/* Filter and Search Controls */}
+                              <div className="cms-filter-row">
+                                <select
+                                  value={cmsCommentLessonFilter}
+                                  onChange={(e) => setCmsCommentLessonFilter(e.target.value)}
+                                  className="cms-select-control"
+                                >
+                                  <option value="all">Tất cả bài học ({comments.length})</option>
+                                  {monumentsData.map((m: any) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.name} ({comments.filter(c => c.lessonId === m.id).length})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  value={cmsCommentStatusFilter}
+                                  onChange={(e) => setCmsCommentStatusFilter(e.target.value as any)}
+                                  className="cms-select-control"
+                                >
+                                  <option value="all">Tất cả trạng thái</option>
+                                  <option value="active">🟢 Đang hiển thị</option>
+                                  <option value="hidden">🚫 Đã ẩn</option>
+                                </select>
+
+                                <input
+                                  type="text"
+                                  value={cmsCommentSearch}
+                                  onChange={(e) => setCmsCommentSearch(e.target.value)}
+                                  placeholder="Tìm theo tên học sinh, lớp hoặc nội dung..."
+                                  className="cms-search-input"
+                                />
+                              </div>
+
+                              {/* Comments Management Table / Cards */}
+                              <div className="cms-comments-list">
+                                {comments
+                                  .filter(c => cmsCommentLessonFilter === 'all' || c.lessonId === cmsCommentLessonFilter)
+                                  .filter(c => cmsCommentStatusFilter === 'all' || c.status === cmsCommentStatusFilter)
+                                  .filter(c => {
+                                    if (!cmsCommentSearch.trim()) return true;
+                                    const q = cmsCommentSearch.toLowerCase();
+                                    return (
+                                      c.studentName.toLowerCase().includes(q) ||
+                                      c.studentClass.toLowerCase().includes(q) ||
+                                      c.content.toLowerCase().includes(q) ||
+                                      c.lessonName.toLowerCase().includes(q)
+                                    );
+                                  })
+                                  .map((cmt) => (
+                                    <div key={cmt.id} className={`cms-comment-card ${cmt.status === 'hidden' ? 'is-hidden' : ''}`}>
+                                      <div className="cms-comment-main">
+                                        <div className="cms-comment-meta">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xl">{cmt.studentAvatar || '🎓'}</span>
+                                            <div>
+                                              <strong className="text-white text-sm">{cmt.studentName}</strong>
+                                              <span className="ml-2 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-white/10 text-zinc-300">
+                                                {cmt.studentClass}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-[11px] text-zinc-400">{cmt.lessonName}</span>
+                                            {cmt.specTitle && (
+                                              <span className="text-[11px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                                                📍 {cmt.specTitle}
+                                              </span>
+                                            )}
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                              cmt.status === 'hidden'
+                                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            }`}>
+                                              {cmt.status === 'hidden' ? '🚫 Đã ẩn' : '🟢 Hiển thị'}
+                                            </span>
+                                            <span className="text-[11px] text-zinc-500">
+                                              {new Date(cmt.createdAt).toLocaleString('vi-VN')}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <p className="cms-comment-content">{cmt.content}</p>
+
+                                        {/* Lời phản hồi của giáo viên (nếu có) */}
+                                        {cmt.teacherReply && (
+                                          <div className="cms-teacher-reply-box">
+                                            <div className="flex items-center justify-between mb-1">
+                                              <strong className="text-xs text-amber-300 font-bold flex items-center gap-1">
+                                                👨‍🏫 Phản hồi của Thầy/Cô:
+                                              </strong>
+                                              <button
+                                                type="button"
+                                                className="text-[11px] text-zinc-400 hover:text-white underline cursor-pointer"
+                                                onClick={() => {
+                                                  setReplyingCommentId(cmt.id);
+                                                  setReplyText(cmt.teacherReply || '');
+                                                }}
+                                              >
+                                                Sửa phản hồi
+                                              </button>
+                                            </div>
+                                            <p className="text-xs text-zinc-200">{cmt.teacherReply}</p>
+                                          </div>
+                                        )}
+
+                                        {/* Hộp soạn phản hồi inline */}
+                                        {replyingCommentId === cmt.id && (
+                                          <div className="cms-reply-composer animate-fade-in">
+                                            <textarea
+                                              value={replyText}
+                                              onChange={(e) => setReplyText(e.target.value)}
+                                              placeholder="Nhập nội dung giải đáp thắc mắc hoặc lời khen gửi đến học sinh..."
+                                              className="cms-reply-textarea"
+                                              rows={2}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                              <button
+                                                type="button"
+                                                className="btn-outline outline-dark"
+                                                style={{ padding: '6px 12px', fontSize: '11px' }}
+                                                onClick={() => {
+                                                  setReplyingCommentId(null);
+                                                  setReplyText('');
+                                                }}
+                                              >
+                                                Hủy
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="admin-add-btn"
+                                                style={{ padding: '6px 14px', fontSize: '11px', background: '#3b82f6' }}
+                                                onClick={() => handleSaveTeacherReply(cmt.id)}
+                                              >
+                                                Lưu phản hồi cho học sinh
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Action buttons */}
+                                      <div className="cms-comment-actions">
+                                        <button
+                                          type="button"
+                                          className={`cms-action-btn ${cmt.status === 'hidden' ? 'btn-unhide' : 'btn-hide'}`}
+                                          onClick={() => handleToggleHideComment(cmt.id)}
+                                          title={cmt.status === 'hidden' ? 'Cho phép học sinh xem bình luận này' : 'Ẩn bình luận này khỏi học sinh'}
+                                        >
+                                          {cmt.status === 'hidden' ? '👁️ Bỏ ẩn' : '🚫 Ẩn'}
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          className="cms-action-btn btn-reply"
+                                          onClick={() => {
+                                            setReplyingCommentId(cmt.id);
+                                            setReplyText(cmt.teacherReply || '');
+                                          }}
+                                          title="Trả lời thắc mắc của học sinh"
+                                        >
+                                          💬 Trả lời
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          className="cms-action-btn btn-delete"
+                                          onClick={() => handleDeleteComment(cmt.id)}
+                                          title="Xóa vĩnh viễn bình luận này"
+                                        >
+                                          🗑️ Xóa
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                {comments.length === 0 && (
+                                  <div className="p-8 text-center text-zinc-500">Chưa có bình luận nào từ học sinh.</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ======================================= */}
+                          {/* TAB 6: TRACKING MỨC ĐỘ HIỂU BÀI & PHẢN ỨNG HỌC SINH */}
+                          {/* ======================================= */}
+                          {activeAdminTab === 'tracking' && (
+                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                              <div className="cms-tracking-header">
+                                <div>
+                                  <h3 className="text-base font-bold text-white mb-1">
+                                    📈 BẢNG THEO DÕI MỨC ĐỘ HIỂU BÀI & PHẢN ỨNG CỦA HỌC SINH
+                                  </h3>
+                                  <p className="text-xs text-zinc-400">
+                                    Dựa trên phản hồi thực tế của học sinh (💡 Đã hiểu, ❓ Chưa hiểu rõ, ❤️ Thú vị) trên từng thành tựu.
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs text-zinc-300 font-semibold">Chọn bài học:</label>
+                                  <select
+                                    value={cmsTrackingLessonId || (adminEditingMonu?.id || monumentsData[0]?.id)}
+                                    onChange={(e) => setCmsTrackingLessonId(e.target.value)}
+                                    className="cms-select-control"
+                                  >
+                                    {monumentsData.map((m: any) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.name} ({reactions.filter(r => r.lessonId === m.id).length} lượt react)
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {(() => {
+                                const targetLessonId = cmsTrackingLessonId || adminEditingMonu?.id || monumentsData[0]?.id;
+                                const targetLesson = monumentsData.find((m: any) => m.id === targetLessonId) || adminEditingMonu || monumentsData[0];
+                                const lessonReactions = reactions.filter(r => r.lessonId === targetLessonId);
+
+                                const totalUnderstood = lessonReactions.filter(r => r.type === 'understood').length;
+                                const totalConfused = lessonReactions.filter(r => r.type === 'confused').length;
+                                const totalFascinated = lessonReactions.filter(r => r.type === 'fascinated').length;
+                                const totalFeedback = totalUnderstood + totalConfused;
+                                const understandRate = totalFeedback > 0 ? Math.round((totalUnderstood / totalFeedback) * 100) : 100;
+
+                                const confusedStudents = lessonReactions.filter(r => r.type === 'confused');
+
+                                const specsList = targetLesson?.normalData?.specs || [
+                                  { id: 'spec-loc', title: 'Vị trí', icon: '📍' },
+                                  { id: 'spec-age', title: 'Niên đại', icon: '📅' },
+                                  { id: 'spec-scale', title: 'Quy mô', icon: '📐' },
+                                  { id: 'spec-struct', title: 'Cấu trúc hầm ngầm', icon: '🏛️' }
+                                ];
+
+                                return (
+                                  <div className="flex flex-col gap-6">
+                                    {/* Top Analytics Cards */}
+                                    <div className="cms-kpi-grid">
+                                      <div className="cms-kpi-card border-emerald-500/30">
+                                        <div className="cms-kpi-val text-emerald-400">{understandRate}%</div>
+                                        <div className="cms-kpi-lbl">📊 Tỉ lệ học sinh nắm vững</div>
+                                        <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                                          <div
+                                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                                            style={{ width: `${understandRate}%` }}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="cms-kpi-card border-cyan-500/30">
+                                        <div className="cms-kpi-val text-cyan-400">{totalUnderstood}</div>
+                                        <div className="cms-kpi-lbl">💡 Lượt báo "Đã hiểu rõ"</div>
+                                      </div>
+
+                                      <div className="cms-kpi-card border-rose-500/30">
+                                        <div className="cms-kpi-val text-rose-400">{totalConfused}</div>
+                                        <div className="cms-kpi-lbl">❓ Lượt báo "Chưa hiểu rõ"</div>
+                                      </div>
+
+                                      <div className="cms-kpi-card border-purple-500/30">
+                                        <div className="cms-kpi-val text-purple-400">{totalFascinated}</div>
+                                        <div className="cms-kpi-lbl">❤️ Lượt báo "Rất thú vị"</div>
+                                      </div>
+                                    </div>
+
+                                    {/* Achievement Breakdown Heatmap Table */}
+                                    <div className="bg-zinc-900/90 rounded-2xl border border-white/10 p-5 shadow-xl">
+                                      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                          <span>🎯 Ma Trận Hiểu Bài Từng Thành Tựu ({targetLesson.name})</span>
+                                        </h4>
+                                        <span className="text-xs text-zinc-400">
+                                          Tự động đánh giá điểm nghẽn kiến thức để giáo viên điều chỉnh bài giảng
+                                        </span>
+                                      </div>
+
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                          <thead>
+                                            <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[11px]">
+                                              <th className="py-3 px-4">Thành tựu / Bộ phận</th>
+                                              <th className="py-3 px-4 text-center">💡 Đã hiểu</th>
+                                              <th className="py-3 px-4 text-center">❓ Chưa hiểu</th>
+                                              <th className="py-3 px-4 text-center">❤️ Thú vị</th>
+                                              <th className="py-3 px-4">Tỷ lệ hiểu bài</th>
+                                              <th className="py-3 px-4">Đánh giá sư phạm & Khuyến nghị</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-white/5">
+                                            {specsList.map((spec: any) => {
+                                              const uCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'understood').length;
+                                              const cCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'confused').length;
+                                              const fCount = lessonReactions.filter(r => r.specId === spec.id && r.type === 'fascinated').length;
+                                              const specTotal = uCount + cCount;
+                                              const specRate = specTotal > 0 ? Math.round((uCount / specTotal) * 100) : 100;
+                                              const isAlert = cCount >= 3 || (specTotal >= 4 && specRate < 70);
+
+                                              return (
+                                                <tr key={spec.id} className="hover:bg-white/5 transition-colors">
+                                                  <td className="py-3 px-4 font-semibold text-white flex items-center gap-2">
+                                                    <span>{spec.icon || '📌'}</span>
+                                                    <span>{spec.title}</span>
+                                                  </td>
+                                                  <td className="py-3 px-4 text-center text-emerald-400 font-bold">{uCount}</td>
+                                                  <td className="py-3 px-4 text-center text-rose-400 font-bold">{cCount}</td>
+                                                  <td className="py-3 px-4 text-center text-purple-400 font-bold">{fCount}</td>
+                                                  <td className="py-3 px-4 w-40">
+                                                    <div className="flex items-center gap-2">
+                                                      <div className="flex-1 bg-white/10 h-2 rounded-full overflow-hidden">
+                                                        <div
+                                                          className={`h-full rounded-full ${isAlert ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                                          style={{ width: `${specRate}%` }}
+                                                        />
+                                                      </div>
+                                                      <span className="font-bold text-[11px]">{specRate}%</span>
+                                                    </div>
+                                                  </td>
+                                                  <td className="py-3 px-4">
+                                                    {isAlert ? (
+                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                                        ⚠️ CẦN GIẢNG THÊM ({cCount} học sinh chưa hiểu)
+                                                      </span>
+                                                    ) : uCount >= 3 ? (
+                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                        ✅ NẮM BẮT TỐT (Kiến thức truyền tải rõ ràng)
+                                                      </span>
+                                                    ) : (
+                                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-300">
+                                                        📊 Đang thu thập phản hồi ({uCount + cCount} lượt)
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+
+                                    {/* Need Assistance: Danh sách học sinh chưa hiểu rõ */}
+                                    <div className="bg-zinc-900/90 rounded-2xl border border-white/10 p-5 shadow-xl">
+                                      <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                                        <span>🆘 Danh Sách Học Sinh Cần Hỗ Trợ / Giảng Lại</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                                          {confusedStudents.length} lượt cần trợ giúp
+                                        </span>
+                                      </h4>
+                                      <p className="text-xs text-zinc-400 mb-4">
+                                        Thầy cô có thể chủ động đặt câu hỏi hoặc phân tích lại các phần này trong tiết học trên lớp.
+                                      </p>
+
+                                      {confusedStudents.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                          {confusedStudents.map((st) => (
+                                            <div key={st.id} className="p-3 rounded-xl bg-white/5 border border-white/10 flex flex-col gap-1">
+                                              <div className="flex items-center justify-between">
+                                                <strong className="text-xs text-white">{st.studentName}</strong>
+                                                <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-semibold text-zinc-300">
+                                                  {st.studentClass}
+                                                </span>
+                                              </div>
+                                              <div className="text-[11px] text-amber-300 flex items-center gap-1 mt-1">
+                                                <span>❓ Chưa hiểu:</span>
+                                                <span className="font-semibold">{st.specTitle}</span>
+                                              </div>
+                                              <div className="text-[10px] text-zinc-500 mt-0.5">
+                                                {new Date(st.createdAt).toLocaleString('vi-VN')}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="p-6 text-center text-zinc-400 text-xs">
+                                          🎉 Chưa có học sinh nào báo chưa hiểu bài ở bài học này!
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
                           {/* ======================================= */}
                           {/* TAB 4: SỔ THEO DÕI ĐIỂM (REPORT) */}
                           {/* ======================================= */}
@@ -2953,7 +3564,7 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
               )}
             </section>
 
-            {/* Right Sidebar: Details & Specs */}
+            {/* Right Sidebar: Details, Specs, Reactions & Student Discussion */}
             {viewMode !== 'npc' && viewMode !== 'mask' && viewMode !== 'hand' && (
               <aside className="cas-sidebar-right" style={{ display: 'flex', flexDirection: 'column' }}>
                 {selectedMeshName && (
@@ -2963,85 +3574,373 @@ Chỉ trả về nội dung, không cần format code.\n\n--- TÀI LIỆU ---\n$
                   </div>
                 )}
 
-                {/* Clean Part Inspector (Replaces ugly yellow box) */}
-                {role === 'admin' && selectedMeshName && (!activeMonu.meshData || !activeMonu.meshData[selectedMeshName]) && (
-                  <div className="admin-mesh-catcher">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <strong>🛠️ Bộ phận đang chọn:</strong>
-                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Chưa có bài giảng</span>
-                    </div>
-                    <code>{selectedMeshName}</code>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 10px 0' }}>Bấm nút dưới để tạo mục kiến thức riêng cho bộ phận này.</p>
-                    <button className="admin-add-btn" style={{ width: '100%', padding: '8px 12px', justifyContent: 'center' }} onClick={() => handleCreateMeshData(selectedMeshName)}>+ Tạo Bài Giảng</button>
-                  </div>
-                )}
+                {/* Sidebar Mode Tab Switcher: Thông số & Thành tựu vs Thảo luận học sinh */}
+                <div className="sidebar-tab-switcher">
+                  <button 
+                    type="button" 
+                    className={`sidebar-tab-btn ${sidebarRightTab === 'specs' ? 'active' : ''}`}
+                    onClick={() => setSidebarRightTab('specs')}
+                  >
+                    📜 Kiến thức & Thành tựu
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`sidebar-tab-btn ${sidebarRightTab === 'comments' ? 'active' : ''}`}
+                    onClick={() => setSidebarRightTab('comments')}
+                  >
+                    <span>💬 Thảo luận học sinh</span>
+                    {comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').length > 0 && (
+                      <span className="comment-badge-count">
+                        {comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').length}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
-                <div className="detail-panel" style={{ display: 'flex', flexDirection: 'column', flex: expandedSpec ? 1 : 'none' }}>
-                  {!expandedSpec && (
-                    <div className="section-label">
-                      {role === 'admin' && selectedMeshName && activeMonu.meshData && activeMonu.meshData[selectedMeshName] ? (
-                        <input className="admin-spec-input" style={{ width: '100%', marginBottom: '4px', fontSize: '11px' }} value={currentInfo.title} onChange={e => handleUpdateMeshTitle(e.target.value)} />
-                      ) : (
-                        <span>{currentInfo.title}</span>
+                {sidebarRightTab === 'specs' ? (
+                  <>
+                    {/* Clean Part Inspector (Replaces ugly yellow box) */}
+                    {role === 'admin' && selectedMeshName && (!activeMonu.meshData || !activeMonu.meshData[selectedMeshName]) && (
+                      <div className="admin-mesh-catcher">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <strong>🛠️ Bộ phận đang chọn:</strong>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Chưa có bài giảng</span>
+                        </div>
+                        <code>{selectedMeshName}</code>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 10px 0' }}>Bấm nút dưới để tạo mục kiến thức riêng cho bộ phận này.</p>
+                        <button className="admin-add-btn" style={{ width: '100%', padding: '8px 12px', justifyContent: 'center' }} onClick={() => handleCreateMeshData(selectedMeshName)}>+ Tạo Bài Giảng</button>
+                      </div>
+                    )}
+
+                    <div className="detail-panel" style={{ display: 'flex', flexDirection: 'column', flex: expandedSpec ? 1 : 'none' }}>
+                      {!expandedSpec && (
+                        <div className="section-label">
+                          {role === 'admin' && selectedMeshName && activeMonu.meshData && activeMonu.meshData[selectedMeshName] ? (
+                            <input className="admin-spec-input" style={{ width: '100%', marginBottom: '4px', fontSize: '11px' }} value={currentInfo.title} onChange={e => handleUpdateMeshTitle(e.target.value)} />
+                          ) : (
+                            <span>{currentInfo.title}</span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
 
-                  <div className="specs-grid" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    {currentInfo.specs.map((spec: any) => {
-                      if (expandedSpec && expandedSpec !== spec.id) return null;
-                      const isExpanded = expandedSpec === spec.id;
-                      return (
-                        <div key={spec.id} className={`spec-card ${isExpanded ? 'expanded' : ''}`} style={{ display: 'flex', flexDirection: 'column', flex: isExpanded ? 1 : 'none', position: 'relative' }}>
-                          {role === 'admin' && <button className="delete-spec-btn" onClick={(e) => { e.stopPropagation(); handleDeleteSpecCard(spec.id); }}>×</button>}
-                          <div className="spec-card-header" onClick={() => setExpandedSpec(isExpanded ? null : spec.id)}>
-                            <div className="spec-icon-box" style={{ cursor: role === 'admin' ? 'pointer' : 'default', position: 'relative' }} onClick={(e) => { if (role === 'admin') { e.stopPropagation(); setOpenIconPickerId(openIconPickerId === spec.id ? null : spec.id); } }}>
-                              {spec.icon}
-                              {role === 'admin' && openIconPickerId === spec.id && (
-                                <div className="icon-picker-menu" onClick={e => e.stopPropagation()}>
-                                  {PREDEFINED_ICONS.map((icon) => <div key={icon} className="icon-option" onClick={(e) => { e.stopPropagation(); handleUpdateSpec(spec.id, 'icon', icon); setOpenIconPickerId(null); }}>{icon}</div>)}
+                      <div className="specs-grid" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        {currentInfo.specs.map((spec: any) => {
+                          if (expandedSpec && expandedSpec !== spec.id) return null;
+                          const isExpanded = expandedSpec === spec.id;
+
+                          const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+                          const specUnderstood = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.type === 'understood').length;
+                          const specConfused = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.type === 'confused').length;
+                          const specFascinated = reactions.filter(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.type === 'fascinated').length;
+
+                          const hasUnderstood = reactions.some(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.studentName === currentStudentName && r.type === 'understood');
+                          const hasConfused = reactions.some(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.studentName === currentStudentName && r.type === 'confused');
+                          const hasFascinated = reactions.some(r => r.lessonId === activeMonu.id && r.specId === spec.id && r.studentName === currentStudentName && r.type === 'fascinated');
+
+                          return (
+                            <div key={spec.id} className={`spec-card ${isExpanded ? 'expanded' : ''}`} style={{ display: 'flex', flexDirection: 'column', flex: isExpanded ? 1 : 'none', position: 'relative' }}>
+                              {role === 'admin' && <button className="delete-spec-btn" onClick={(e) => { e.stopPropagation(); handleDeleteSpecCard(spec.id); }}>×</button>}
+                              <div className="spec-card-header" onClick={() => setExpandedSpec(isExpanded ? null : spec.id)}>
+                                <div className="spec-icon-box" style={{ cursor: role === 'admin' ? 'pointer' : 'default', position: 'relative' }} onClick={(e) => { if (role === 'admin') { e.stopPropagation(); setOpenIconPickerId(openIconPickerId === spec.id ? null : spec.id); } }}>
+                                  {spec.icon}
+                                  {role === 'admin' && openIconPickerId === spec.id && (
+                                    <div className="icon-picker-menu" onClick={e => e.stopPropagation()}>
+                                      {PREDEFINED_ICONS.map((icon) => <div key={icon} className="icon-option" onClick={(e) => { e.stopPropagation(); handleUpdateSpec(spec.id, 'icon', icon); setOpenIconPickerId(null); }}>{icon}</div>)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="spec-header-text">
+                                  {role === 'admin' && !isExpanded ? (
+                                    <>
+                                      <input className="admin-spec-input" style={{ fontSize: '10.5px', marginBottom: '2px', width: '90%' }} value={spec.title} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'title', e.target.value)} />
+                                      <input className="admin-spec-input" style={{ width: '90%' }} value={spec.summary} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'summary', e.target.value)} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="spec-title">{spec.title}</span>
+                                      <span className="spec-summary">{spec.summary}</span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="expand-icon">{isExpanded ? '✕' : '+'}</div>
+                              </div>
+
+                              {/* Interactive Reactions on Achievement (💡 Đã hiểu | ❓ Chưa hiểu | ❤️ Thú vị) */}
+                              <div className="spec-reactions-row" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className={`reaction-chip ${hasUnderstood ? 'active-understood' : ''}`}
+                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'understood')}
+                                  title="Em đã hiểu rõ thành tựu này"
+                                >
+                                  <span>💡 Đã hiểu</span>
+                                  {specUnderstood > 0 && <span className="chip-count">{specUnderstood}</span>}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={`reaction-chip ${hasConfused ? 'active-confused' : ''}`}
+                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'confused')}
+                                  title="Em chưa hiểu rõ / Cần giải thích thêm"
+                                >
+                                  <span>❓ Chưa hiểu</span>
+                                  {specConfused > 0 && <span className="chip-count chip-confused">{specConfused}</span>}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={`reaction-chip ${hasFascinated ? 'active-fascinated' : ''}`}
+                                  onClick={() => handleToggleReaction(spec.id, spec.title, 'fascinated')}
+                                  title="Thành tựu này rất thú vị"
+                                >
+                                  <span>❤️ Thú vị</span>
+                                  {specFascinated > 0 && <span className="chip-count">{specFascinated}</span>}
+                                </button>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="spec-full-text">
+                                  {spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? (
+                                    <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} />
+                                  ) : (
+                                    <p key={index} className="spec-paragraph">{paragraph}</p>
+                                  ))}
                                 </div>
                               )}
                             </div>
-                            <div className="spec-header-text">
-                              {role === 'admin' && !isExpanded ? (
-                                <>
-                                  <input className="admin-spec-input" style={{ fontSize: '10.5px', marginBottom: '2px', width: '90%' }} value={spec.title} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'title', e.target.value)} />
-                                  <input className="admin-spec-input" style={{ width: '90%' }} value={spec.summary} onClick={e => e.stopPropagation()} onChange={e => handleUpdateSpec(spec.id, 'summary', e.target.value)} />
-                                </>
-                              ) : (
-                                <>
-                                  <span className="spec-title">{spec.title}</span>
-                                  <span className="spec-summary">{spec.summary}</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="expand-icon">{isExpanded ? '✕' : '+'}</div>
-                          </div>
-                          {isExpanded && (
-                            <div className="spec-full-text">
-                              {spec.fullText.map((paragraph: string, index: number) => role === 'admin' ? (
-                                <textarea key={index} className="admin-spec-textarea" value={paragraph} onChange={e => handleUpdateSpec(spec.id, 'fullText', e.target.value, index)} />
-                              ) : (
-                                <p key={index} className="spec-paragraph">{paragraph}</p>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {role === 'admin' && !expandedSpec && <button className="admin-add-btn" style={{ marginTop: '4px', padding: '8px 12px', justifyContent: 'center' }} onClick={handleAddSpecCard}>+ Thêm Thẻ Thông Số</button>}
-                  </div>
-                </div>
+                          );
+                        })}
+                        {role === 'admin' && !expandedSpec && <button className="admin-add-btn" style={{ marginTop: '4px', padding: '8px 12px', justifyContent: 'center' }} onClick={handleAddSpecCard}>+ Thêm Thẻ Thông Số</button>}
+                      </div>
+                    </div>
 
-                {!expandedSpec && (
-                  <div className="notes-panel" style={{ marginTop: '20px' }}>
-                    <div className="section-label">GHI CHÚ MỞ RỘNG</div>
-                    {role === 'admin' && (selectedMeshName === '' || (activeMonu.meshData && activeMonu.meshData[selectedMeshName])) ? (
-                      <textarea className="admin-textarea" value={currentInfo.historyNotes} onChange={(e) => handleUpdateNotes(e.target.value)} placeholder="Nhập ghi chú hoặc tư liệu lịch sử mở rộng..." />
-                    ) : (
-                      <p className="spec-paragraph" style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6' }}>{currentInfo.historyNotes || 'Chưa có ghi chú bổ sung.'}</p>
+                    {!expandedSpec && (
+                      <div className="notes-panel" style={{ marginTop: '20px' }}>
+                        <div className="section-label">GHI CHÚ MỞ RỘNG</div>
+                        {role === 'admin' && (selectedMeshName === '' || (activeMonu.meshData && activeMonu.meshData[selectedMeshName])) ? (
+                          <textarea className="admin-textarea" value={currentInfo.historyNotes} onChange={(e) => handleUpdateNotes(e.target.value)} placeholder="Nhập ghi chú hoặc tư liệu lịch sử mở rộng..." />
+                        ) : (
+                          <p className="spec-paragraph" style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6' }}>{currentInfo.historyNotes || 'Chưa có ghi chú bổ sung.'}</p>
+                        )}
+                      </div>
                     )}
+                  </>
+                ) : (
+                  /* 💬 PHẦN BÌNH LUẬN & THẢO LUẬN CỦA HỌC SINH */
+                  <div className="student-comments-panel animate-fade-in">
+                    {/* Hộp soạn thảo bình luận */}
+                    <div className="comment-composer-card">
+                      <div className="composer-header">
+                        <div className="composer-user-info">
+                          <div className="composer-avatar-badge" title="Avatar học sinh của em">
+                            {currentUser?.user_metadata?.avatar || selectedAvatar}
+                          </div>
+                          <div>
+                            <div className="composer-user-name">
+                              {currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh'}
+                            </div>
+                            <div className="composer-user-class">
+                              Lớp: {currentUser?.user_metadata?.class_name || studentClass.trim() || '10A'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Chọn nhanh avatar */}
+                        <div className="avatar-quick-picker">
+                          {AVATAR_LIST.slice(0, 5).map(avt => (
+                            <button
+                              key={avt}
+                              type="button"
+                              className={`avatar-pill-btn ${(currentUser?.user_metadata?.avatar || selectedAvatar) === avt ? 'selected' : ''}`}
+                              onClick={() => setSelectedAvatar(avt)}
+                              title="Chọn avatar"
+                            >
+                              {avt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Chọn mục thành tựu liên quan */}
+                      <div className="composer-meta-row">
+                        <label className="text-[11px] text-zinc-400 font-medium">Mục liên quan:</label>
+                        <select
+                          value={newCommentSpecId}
+                          onChange={(e) => setNewCommentSpecId(e.target.value)}
+                          className="composer-spec-select"
+                        >
+                          <option value="general">🏛️ Chung về {activeMonu.name}</option>
+                          {(currentInfo.specs || []).map((s: any) => (
+                            <option key={s.id} value={s.id}>
+                              {s.icon} {s.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Chọn loại tương tác (Tags) */}
+                      <div className="composer-tags-row">
+                        {[
+                          { key: 'question', label: '💡 Thắc mắc cần hỏi' },
+                          { key: 'unclear', label: '❓ Em chưa hiểu' },
+                          { key: 'impression', label: '✨ Cảm nhận' },
+                          { key: 'connection', label: '🏛️ Liên hệ bài học' }
+                        ].map(t => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            className={`composer-tag-chip ${newCommentTag === t.key ? 'active' : ''}`}
+                            onClick={() => setNewCommentTag(t.key as any)}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Ô nhập nội dung */}
+                      <textarea
+                        value={newCommentText}
+                        onChange={(e) => {
+                          setNewCommentText(e.target.value);
+                          if (moderationWarning) setModerationWarning(null);
+                        }}
+                        placeholder="Em hãy viết thắc mắc, câu hỏi hoặc chia sẻ cảm nhận về thành tựu này..."
+                        className="composer-textarea"
+                        rows={3}
+                      />
+
+                      {/* Cảnh báo bộ lọc từ ngữ bậy / thô tục */}
+                      {moderationWarning && (
+                        <div className="moderation-alert animate-fade-in">
+                          <span>{moderationWarning}</span>
+                        </div>
+                      )}
+
+                      {/* Thông báo đăng thành công */}
+                      {commentSuccessMsg && (
+                        <div className="comment-success-alert animate-fade-in">
+                          <span>{commentSuccessMsg}</span>
+                        </div>
+                      )}
+
+                      <div className="composer-action-row">
+                        <span className="text-[10px] text-zinc-500">
+                          🛡️ Tự động lọc ngôn từ thô tục vì môi trường học tập văn minh
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handlePostComment}
+                          className="btn-post-comment"
+                        >
+                          Gửi thảo luận ➔
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Bộ lọc bình luận theo tag */}
+                    <div className="comments-filter-bar">
+                      {[
+                        { key: 'all', label: `Tất cả (${comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').length})` },
+                        { key: 'question', label: '💡 Thắc mắc' },
+                        { key: 'unclear', label: '❓ Chưa hiểu' },
+                        { key: 'impression', label: '✨ Cảm nhận' }
+                      ].map(tab => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          className={`comment-filter-btn ${commentFilterTag === tab.key ? 'active' : ''}`}
+                          onClick={() => setCommentFilterTag(tab.key)}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Danh sách bình luận */}
+                    <div className="comments-feed-list">
+                      {comments
+                        .filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden')
+                        .filter(c => commentFilterTag === 'all' || c.tag === commentFilterTag)
+                        .map((cmt) => {
+                          const currentStudentName = currentUser?.user_metadata?.full_name || studentName.trim() || 'Học sinh';
+                          const isLiked = (cmt.likedBy || []).includes(currentStudentName);
+                          return (
+                            <div key={cmt.id} className="comment-item-card animate-fade-in">
+                              <div className="comment-item-header">
+                                <div className="comment-author-avatar">{cmt.studentAvatar || '🎓'}</div>
+                                <div className="comment-author-info">
+                                  <div className="comment-author-name">
+                                    {cmt.studentName}
+                                    <span className="comment-author-class">{cmt.studentClass}</span>
+                                  </div>
+                                  <div className="comment-meta-time">
+                                    {new Date(cmt.createdAt).toLocaleString('vi-VN', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      day: '2-digit',
+                                      month: '2-digit'
+                                    })}
+                                  </div>
+                                </div>
+
+                                <span className={`comment-tag-badge tag-${cmt.tag}`}>
+                                  {cmt.tag === 'question' ? '💡 Thắc mắc' :
+                                   cmt.tag === 'unclear' ? '❓ Chưa hiểu' :
+                                   cmt.tag === 'impression' ? '✨ Cảm nhận' :
+                                   '🏛️ Liên hệ'}
+                                </span>
+                              </div>
+
+                              {cmt.specTitle && (
+                                <div className="comment-spec-link">
+                                  <span>📍 Mục: {cmt.specTitle}</span>
+                                </div>
+                              )}
+
+                              <p className="comment-body-text">{cmt.content}</p>
+
+                              {/* Lời phản hồi của giáo viên */}
+                              {cmt.teacherReply && (
+                                <div className="teacher-reply-bubble">
+                                  <div className="teacher-reply-header">
+                                    <span className="teacher-badge">👨‍🏫 Thầy cô phản hồi</span>
+                                    {cmt.teacherRepliedAt && (
+                                      <span className="teacher-time">
+                                        {new Date(cmt.teacherRepliedAt).toLocaleString('vi-VN', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          day: '2-digit',
+                                          month: '2-digit'
+                                        })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="teacher-reply-content">{cmt.teacherReply}</p>
+                                </div>
+                              )}
+
+                              <div className="comment-footer-actions">
+                                <button
+                                  type="button"
+                                  className={`comment-like-btn ${isLiked ? 'liked' : ''}`}
+                                  onClick={() => handleToggleLikeComment(cmt.id)}
+                                  title="Thả tim cho bình luận này"
+                                >
+                                  <span>{isLiked ? '❤️' : '🤍'}</span>
+                                  <span>{cmt.likes || 0}</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                      {comments.filter(c => c.lessonId === activeMonu.id && c.status !== 'hidden').filter(c => commentFilterTag === 'all' || c.tag === commentFilterTag).length === 0 && (
+                        <div className="empty-comments-box">
+                          <div className="text-2xl mb-1">💬</div>
+                          <div className="text-xs text-zinc-400">Chưa có bình luận nào ở mục này. Em hãy là người đầu tiên đặt câu hỏi nhé!</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </aside>
